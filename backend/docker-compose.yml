@@ -1,8 +1,8 @@
 # =============================================================
-# docker-compose.yml — Producto 3 FullStackAttack (JobConnect)
+# docker-compose.yml — Producto 4 FullStackAttack (JobConnect)
 # -------------------------------------------------------------
 # Levanta dos servicios:
-#   1. mongo         → base de datos MongoDB (puerto 27017)
+#   1. mongo         → base de datos MongoDB local (puerto 27017)
 #   2. mongo-express → panel web de administración (puerto 8083)
 #
 # Comandos útiles:
@@ -13,22 +13,22 @@
 
 services:
   # -----------------------------------------------------------
-  # MongoDB: base de datos NoSQL del proyecto
+  # MongoDB: base de datos NoSQL del Producto 4
   # -----------------------------------------------------------
   mongo:
     image: mongo:7
-    container_name: p3-mongo
+    container_name: p4-mongo
     restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: admin
-      MONGO_INITDB_DATABASE: jobconnect_producto3
+      MONGO_INITDB_DATABASE: jobconnect_producto4
     volumes:
-      - mongo-data:/data/db
+      - p4-mongo-data:/data/db
     networks:
-      - p3-network
+      - p4-network
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 })"]
       interval: 10s
@@ -41,7 +41,7 @@ services:
   # -----------------------------------------------------------
   mongo-express:
     image: mongo-express:1.0.2
-    container_name: p3-mongo-express
+    container_name: p4-mongo-express
     restart: unless-stopped
     ports:
       - "8083:8081"
@@ -55,20 +55,20 @@ services:
       mongo:
         condition: service_healthy
     networks:
-      - p3-network
+      - p4-network
 
 # -------------------------------------------------------------
-# Volumen con persistencia de los datos de Mongo.
+# Volumen con persistencia de los datos de MongoDB.
 # Así los datos no se pierden al parar y reiniciar el contenedor.
 # -------------------------------------------------------------
 volumes:
-  mongo-data:
+  p4-mongo-data:
     driver: local
 
 # -------------------------------------------------------------
 # Red interna para que los contenedores se comuniquen
-# entre ellos por nombre de servicio (p.ej. "mongo")
+# entre ellos por nombre de servicio.
 # -------------------------------------------------------------
 networks:
-  p3-network:
+  p4-network:
     driver: bridge

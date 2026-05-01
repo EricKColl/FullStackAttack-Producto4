@@ -1,25 +1,30 @@
 {
-  "name": "fullstackattack-producto3",
+  "name": "fullstackattack-producto4",
   "version": "1.0.0",
-  "description": "Producto 3 FP.450 — Backend GraphQL + MongoDB (JobConnect)",
+  "description": "Producto 4 FP.450 — Aplicación FullStack JS con Frontend, GraphQL, MongoDB, Mongoose, Fetch y WebSockets",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed": "node src/seed/ejecutarSeed.js",
+    "seed": "node src/seed/seed.js",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f mongo"
   },
   "keywords": [
+    "fullstack",
     "graphql",
     "apollo",
     "mongodb",
+    "mongoose",
     "express",
+    "socket.io",
+    "fetch",
     "jobconnect",
     "fp450",
-    "uoc"
+    "uoc",
+    "producto4"
   ],
   "author": "Equipo FullStackAttack",
   "license": "ISC",
