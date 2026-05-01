@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <!-- Configuración básica del documento -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Título mostrado en la pestaña del navegador -->
+  <title>JobConnect | Plataforma de empleo</title>
+
+  <!-- Bootstrap 5 para diseño responsive y componentes visuales -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+
+  <!-- Hoja de estilos propia del proyecto -->
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+
+<body>
+  <!-- =========================
+       BARRA DE NAVEGACIÓN
+       =========================
+       La marca lleva a la portada principal.
+       El resto de enlaces mantiene el acceso directo a las páginas exigidas.
+  -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">JobConnect</a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarInicio"
+        aria-controls="navbarInicio" aria-expanded="false" aria-label="Mostrar navegación">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarInicio">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="login.html">Login</a></li>
+          <li class="nav-item"><a class="nav-link" href="ofertas-demandas.html">Ofertas/Demandas</a></li>
+          <li class="nav-item"><a class="nav-link" href="usuarios.html">Usuarios</a></li>
+        </ul>
+
+        <div class="d-flex align-items-center gap-2">
+          <span class="navbar-text" id="usuarioActivo">Usuario activo: -no login-</span>
+          <button id="btn-cerrar-sesion" class="btn btn-sm btn-outline-light d-none" type="button">
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =========================
+       CONTENIDO PRINCIPAL
+       ========================= -->
+  <main class="container py-4">
+    <!-- Hero principal de la portada -->
+    <section class="hero-home text-center">
+      <span class="hero-badge">Plataforma de empleo digital · Producto 2 · HTML5 + Persistencia local</span>
+      <h1 class="hero-title">
+        Conecta talento y oportunidades con una experiencia
+        <span class="hero-highlight">más visual, más ágil y más profesional</span>
+      </h1>
+      <p class="hero-description">
+        JobConnect es una aplicación web orientada a la gestión moderna de ofertas y demandas laborales.
+        Centraliza el acceso de usuarios, el registro de publicaciones, la persistencia local del sistema y la
+        organización visual de candidaturas en un entorno claro, innovador y preparado para evolucionar.
+      </p>
+
+      <div class="hero-actions">
+        <a href="login.html" class="btn btn-primary btn-lg">Acceder a la aplicación</a>
+        <a href="dashboard.html" class="btn btn-outline-primary btn-lg">Explorar el dashboard</a>
+      </div>
+
+      <div class="hero-metrics">
+        <div class="hero-metric">
+          <strong>4</strong>
+          <span>módulos funcionales conectados entre sí</span>
+        </div>
+        <div class="hero-metric">
+          <strong>HTML5</strong>
+          <span>Canvas, Drag &amp; Drop, WebStorage e IndexedDB</span>
+        </div>
+        <div class="hero-metric">
+          <strong>UX</strong>
+          <span>navegación clara, interacción directa y persistencia local</span>
+        </div>
+        <div class="hero-metric">
+          <strong>Vanilla JS</strong>
+          <span>arquitectura modular lista para crecer con backend</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bloque explicativo principal -->
+    <section class="page-intro mb-4">
+      <h2 class="page-heading">Una experiencia profesional pensada para la gestión de empleo</h2>
+      <p class="page-subtitle">
+        La plataforma permite autenticar usuarios, administrar perfiles, crear publicaciones de empleo y organizar
+        selecciones personalizadas desde un dashboard visual. Todo ello manteniendo una interfaz coherente, un estilo
+        tecnológico de alta legibilidad y una base funcional alineada con los requisitos del proyecto.
+      </p>
+    </section>
+
+    <!-- Tarjetas con propuesta de valor -->
+    <section class="row g-4 mb-4">
+      <div class="col-12 col-lg-4">
+        <article class="feature-card h-100">
+          <div class="card-icon">✦</div>
+          <h3>Gestión integral de publicaciones</h3>
+          <p>
+            Registra ofertas y demandas con información relevante, persistencia en IndexedDB y una presentación clara
+            para su consulta, seguimiento y eliminación.
+          </p>
+        </article>
+      </div>
+
+      <div class="col-12 col-lg-4">
+        <article class="feature-card h-100">
+          <div class="card-icon">◉</div>
+          <h3>Organización visual del talento</h3>
+          <p>
+            Selecciona publicaciones de forma intuitiva mediante filtros, doble clic y drag &amp; drop, conservando el
+            estado de trabajo del usuario entre recargas y sesiones locales.
+          </p>
+        </article>
+      </div>
+
+      <div class="col-12 col-lg-4">
+        <article class="feature-card h-100">
+          <div class="card-icon">▣</div>
+          <h3>Diseño moderno y navegación eficiente</h3>
+          <p>
+            La interfaz está diseñada para transmitir profesionalidad, innovación y legibilidad, favoreciendo una
+            experiencia más agradable, clara y robusta en el uso diario.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Flujo de trabajo -->
+    <section class="row g-4 mb-4">
+      <div class="col-12 col-lg-6">
+        <section class="process-card h-100">
+          <div class="section-heading-block">
+            <h2 class="section-title">Cómo funciona la plataforma</h2>
+            <p class="section-subtitle">
+              Un recorrido simple y lógico que conecta autenticación, gestión de datos y selección visual.
+            </p>
+          </div>
+
+          <div class="d-grid gap-3">
+            <div class="info-chip">1 · Accede con tus credenciales y consulta el estado de la sesión</div>
+            <div class="info-chip">2 · Da de alta usuarios y mantén actualizada la información registrada</div>
+            <div class="info-chip">3 · Crea ofertas o demandas y visualiza su distribución en el gráfico</div>
+            <div class="info-chip">4 · Organiza tu selección de publicaciones en el dashboard interactivo</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <section class="highlight-card h-100">
+          <div class="section-heading-block">
+            <h2 class="section-title">Tecnología aplicada al producto</h2>
+            <p class="section-subtitle">
+              El proyecto aprovecha APIs nativas del navegador para reforzar la interacción, la persistencia y la
+              modularidad del frontend.
+            </p>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <article class="section-glass p-3 h-100">
+                <h3 class="h5 mb-2">WebStorage</h3>
+                <p class="mb-0 text-muted">Mantiene la sesión activa y almacena la información de usuarios con acceso rápido y local.</p>
+              </article>
+            </div>
+            <div class="col-12 col-md-6">
+              <article class="section-glass p-3 h-100">
+                <h3 class="h5 mb-2">IndexedDB</h3>
+                <p class="mb-0 text-muted">Persistencia estructurada para publicaciones y selección de elementos del dashboard.</p>
+              </article>
+            </div>
+            <div class="col-12 col-md-6">
+              <article class="section-glass p-3 h-100">
+                <h3 class="h5 mb-2">Canvas</h3>
+                <p class="mb-0 text-muted">Representación visual del volumen de ofertas y demandas con dibujo nativo en el navegador.</p>
+              </article>
+            </div>
+            <div class="col-12 col-md-6">
+              <article class="section-glass p-3 h-100">
+                <h3 class="h5 mb-2">Drag &amp; Drop</h3>
+                <p class="mb-0 text-muted">Selección interactiva de publicaciones para mejorar la experiencia y la productividad del usuario.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- CTA final -->
+    <section class="cta-panel text-center">
+      <div class="section-heading-block mb-3">
+        <h2 class="section-title">Empieza a trabajar con JobConnect</h2>
+        <p class="section-subtitle">
+          Accede a los distintos módulos de la aplicación y explora una solución web diseñada para gestionar talento,
+          oportunidades y procesos de selección con mayor claridad, control y valor visual.
+        </p>
+      </div>
+
+      <div class="hero-actions mb-0">
+        <a href="usuarios.html" class="btn btn-outline-primary">Gestionar usuarios</a>
+        <a href="ofertas-demandas.html" class="btn btn-outline-primary">Gestionar publicaciones</a>
+        <a href="dashboard.html" class="btn btn-primary">Abrir dashboard</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container text-center">
+      FULL STACK ATTACK · JobConnect · Producto 2
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS para navbar responsive y otros componentes -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"></script>
+
+  <!-- Módulo UI para pintar el usuario activo y gestionar el cierre de sesión -->
+  <script type="module">
+    import { inicializarAlmacenamiento } from "./assets/js/almacenaje.js";
+    import { configurarBotonCerrarSesion, pintarUsuarioEnNavbar } from "./assets/js/ui.js";
+
+    window.addEventListener("DOMContentLoaded", async () => {
+      await inicializarAlmacenamiento();
+      pintarUsuarioEnNavbar();
+      configurarBotonCerrarSesion();
+    });
+  </script>
+</body>
+
+</html>

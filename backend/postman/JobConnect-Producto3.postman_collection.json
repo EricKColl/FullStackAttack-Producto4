@@ -1,0 +1,1319 @@
+{
+  "info": {
+    "_postman_id": "dd9c89d4-99ff-4c4a-a50f-374cb8f84f02",
+    "name": "JobConnect Producto 3 — Backend GraphQL",
+    "description": "# JobConnect — Producto 3 FP.450\n\nColección oficial del backend GraphQL del Producto 3 del equipo FullStackAttack (Erick Coll, Carles Miguel, Jacobo).\n\n## Endpoint\n\nLa variable `{{baseUrl}}` apunta al servidor GraphQL. Por defecto:\n\n- **Local**: `http://localhost:4000/graphql`\n    \n- **Atlas / CodeSandbox**: cambiar la variable en el environment correspondiente.\n    \n\n## Autenticación\n\nLas mutations sensibles (crear y eliminar usuarios y publicaciones, gestionar seleccionadas) requieren un token JWT de administrador.\n\n**Flujo de uso recomendado:**\n\n1. Ejecutar `1. Auth → Login Admin` para obtener el token.\n    \n2. El token se guarda automáticamente en la variable `{{token}}` de la colección gracias al script post-response del propio request.\n    \n3. El resto de requests protegidas envían `Authorization: Bearer {{token}}` sin necesidad de copiar y pegar nada manualmente.\n    \n\n## Estructura de carpetas\n\n- **0\\. Healthcheck** — queries básicas creadas en Fase 2 para comprobar que el servidor está vivo.\n    \n- **1\\. Auth** — login del administrador.\n    \n- **2\\. Usuario** — CRUD de usuarios.\n    \n- **3\\. Publicación** — CRUD de publicaciones.\n    \n- **4\\. Dashboard / Seleccionadas** — panel del dashboard del Producto 2.\n    \n- **5\\. Tests de seguridad** — pruebas que demuestran que la protección con JWT funciona correctamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "54197468",
+    "_collection_link": "https://go.postman.co/collection/54197468-dd9c89d4-99ff-4c4a-a50f-374cb8f84f02?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "0. Healthcheck",
+      "item": [
+        {
+          "name": "Saludo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Tests para la query saludo.\r",
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"La respuesta no contiene errors\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve un mensaje de saludo no vacío\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.data.saludo).to.be.a(\"string\");\r",
+                  "    pm.expect(json.data.saludo.length).to.be.greaterThan(0);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query Saludo { saludo }\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Estado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Tests para la query estado.\r",
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"La respuesta no contiene errors\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve un mensaje de estado no vacío\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.data.estado).to.be.a(\"string\");\r",
+                  "    pm.expect(json.data.estado.length).to.be.greaterThan(0);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query Estado { estado }\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Script post-response del Login Admin.\r",
+                  "// Extrae el token de la respuesta y lo guarda en la variable de entorno\r",
+                  "// {{token}} para que el resto de requests protegidas puedan usarlo\r",
+                  "// automáticamente en su header Authorization.\r",
+                  "\r",
+                  "const responseJson = pm.response.json();\r",
+                  "\r",
+                  "// Caso 1: el login ha sido exitoso → guardamos el token.\r",
+                  "if (responseJson?.data?.loginAdmin?.token) {\r",
+                  "    const token = responseJson.data.loginAdmin.token;\r",
+                  "    pm.environment.set(\"token\", token);\r",
+                  "    console.log(\"Token guardado correctamente en la variable {{token}}.\");\r",
+                  "}\r",
+                  "\r",
+                  "// Caso 2: el servidor devolvió errors → mostramos un mensaje claro.\r",
+                  "if (responseJson?.errors?.length > 0) {\r",
+                  "    const primerError = responseJson.errors[0];\r",
+                  "    console.warn(\"Error en loginAdmin:\", primerError.message);\r",
+                  "}\r",
+                  "\r",
+                  "// Tests automáticos para verificar el comportamiento esperado.\r",
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"La respuesta contiene un token\", () => {\r",
+                  "    pm.expect(responseJson?.data?.loginAdmin?.token).to.be.a(\"string\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El usuario devuelto tiene rol admin\", () => {\r",
+                  "    pm.expect(responseJson?.data?.loginAdmin?.usuario?.rol).to.eql(\"admin\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation LoginAdmin($email: String!, $password: String!) { loginAdmin(email: $email, password: $password) { token usuario { id email rol } } }\",\r\n  \"variables\": {\r\n    \"email\": \"{{adminEmail}}\",\r\n    \"password\": \"{{adminPassword}}\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Usuario",
+      "item": [
+        {
+          "name": "2.1. Listar usuarios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve una lista de usuarios\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.listarUsuarios).to.be.an(\"array\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Ningún usuario expone su password\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    json.data.listarUsuarios.forEach(u => {\r",
+                  "        pm.expect(u).to.not.have.property(\"password\");\r",
+                  "    });\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query ListarUsuarios { listarUsuarios { id nombre apellidos email rol } }\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.2. Buscar usuario por email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve un usuario\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.usuarioPorEmail).to.not.be.null;\r",
+                  "    pm.expect(json.data.usuarioPorEmail.email).to.eql(\"laura@jobconnect.com\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El usuario devuelto no tiene password\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.data.usuarioPorEmail).to.not.have.property(\"password\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query UsuarioPorEmail($email: String!) { usuarioPorEmail(email: $email) { id nombre apellidos email rol } }\",\r\n  \"variables\": {\r\n    \"email\": \"laura@jobconnect.com\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.3. Crear usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Crea el usuario y devuelve sus datos\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.crearUsuario).to.be.an(\"object\");\r",
+                  "    pm.expect(json.data.crearUsuario.email).to.eql(\"test.postman@jobconnect.com\");\r",
+                  "    pm.expect(json.data.crearUsuario.id).to.be.a(\"string\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El usuario creado no expone password\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.data.crearUsuario).to.not.have.property(\"password\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation CrearUsuario($datos: CrearUsuarioInput!) { crearUsuario(datos: $datos) { id nombre apellidos email rol } }\",\r\n  \"variables\": {\r\n    \"datos\": {\r\n      \"nombre\": \"Test\",\r\n      \"apellidos\": \"Postman\",\r\n      \"email\": \"test.postman@jobconnect.com\",\r\n      \"password\": \"testpass1234\",\r\n      \"rol\": \"candidato\"\r\n    }\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.4. Eliminar usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve el usuario eliminado\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.eliminarUsuario).to.be.an(\"object\");\r",
+                  "    pm.expect(json.data.eliminarUsuario.email).to.eql(\"test.postman@jobconnect.com\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation EliminarUsuario($email: String!) { eliminarUsuario(email: $email) { id email rol } }\",\r\n  \"variables\": {\r\n    \"email\": \"test.postman@jobconnect.com\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2.5. Loguear usuario (legacy)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve el usuario autenticado\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.loguearUsuario.email).to.eql(\"laura@jobconnect.com\");\r",
+                  "    pm.expect(json.data.loguearUsuario.rol).to.eql(\"candidato\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation LoguearUsuario($email: String!, $password: String!) { loguearUsuario(email: $email, password: $password) { id nombre apellidos email rol } }\",\r\n  \"variables\": {\r\n    \"email\": \"laura@jobconnect.com\",\r\n    \"password\": \"1234\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Publicación",
+      "item": [
+        {
+          "name": "3.1. Listar publicaciones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve una lista de publicaciones\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.listarPublicaciones).to.be.an(\"array\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Las publicaciones están ordenadas por fecha descendente\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    const fechas = json.data.listarPublicaciones.map(p => p.fecha);\r",
+                  "    const ordenadas = [...fechas].sort().reverse();\r",
+                  "    pm.expect(fechas).to.eql(ordenadas);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query ListarPublicaciones { listarPublicaciones { id tipo titulo categoria autor ubicacion descripcion emailContacto fecha } }\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.2. Listar por tipo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve solo publicaciones del tipo solicitado\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    json.data.listarPublicacionesPorTipo.forEach(p => {\r",
+                  "        pm.expect(p.tipo).to.eql(\"oferta\");\r",
+                  "    });\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Hay al menos una publicación devuelta\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.data.listarPublicacionesPorTipo.length).to.be.greaterThan(0);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query ListarPublicacionesPorTipo($tipo: String!) { listarPublicacionesPorTipo(tipo: $tipo) { id tipo titulo categoria fecha } }\",\r\n  \"variables\": {\r\n    \"tipo\": \"oferta\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.3. Buscar por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve una publicación con el id solicitado\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.publicacionPorId).to.not.be.null;\r",
+                  "    pm.expect(json.data.publicacionPorId.id).to.eql(\"1\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query PublicacionPorId($id: ID!) { publicacionPorId(id: $id) { id tipo titulo categoria autor ubicacion descripcion emailContacto fecha } }\",\r\n  \"variables\": {\r\n    \"id\": \"1\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.4. Recuento de publicaciones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El recuento es coherente: ofertas + demandas = total\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    const r = json.data.recuentoPublicaciones;\r",
+                  "    pm.expect(r.ofertas + r.demandas).to.eql(r.total);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Hay al menos una publicación en la BBDD\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.data.recuentoPublicaciones.total).to.be.at.least(1);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query RecuentoPublicaciones { recuentoPublicaciones { ofertas demandas total } }\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.5. Crear publicación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Crea la publicación y devuelve sus datos\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.crearPublicacion).to.be.an(\"object\");\r",
+                  "    pm.expect(json.data.crearPublicacion.titulo).to.eql(\"Backend Developer Postman\");\r",
+                  "    pm.expect(json.data.crearPublicacion.id).to.be.a(\"string\");\r",
+                  "});\r",
+                  "\r",
+                  "// Guardamos el id para que la request de eliminar pueda usarlo después.\r",
+                  "const json = pm.response.json();\r",
+                  "if (json?.data?.crearPublicacion?.id) {\r",
+                  "    pm.environment.set(\"ultimaPublicacionId\", json.data.crearPublicacion.id);\r",
+                  "    console.log(\"Guardado ultimaPublicacionId =\", json.data.crearPublicacion.id);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation CrearPublicacion($datos: CrearPublicacionInput!) { crearPublicacion(datos: $datos) { id tipo titulo categoria autor ubicacion descripcion emailContacto fecha } }\",\r\n  \"variables\": {\r\n    \"datos\": {\r\n      \"tipo\": \"oferta\",\r\n      \"titulo\": \"Backend Developer Postman\",\r\n      \"categoria\": \"Backend\",\r\n      \"autor\": \"Postman Test SL\",\r\n      \"ubicacion\": \"Remoto\",\r\n      \"descripcion\": \"Publicación creada desde Postman para validar la mutation protegida con JWT.\",\r\n      \"emailContacto\": \"rrhh@postmantest.com\",\r\n      \"fecha\": \"2026-04-25\"\r\n    }\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.6. Eliminar publicación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve la publicación eliminada\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.eliminarPublicacion).to.be.an(\"object\");\r",
+                  "    pm.expect(json.data.eliminarPublicacion.id).to.be.a(\"string\");\r",
+                  "});\r",
+                  "\r",
+                  "// Limpiamos la variable para evitar confusiones en futuras ejecuciones.\r",
+                  "pm.environment.unset(\"ultimaPublicacionId\");\r",
+                  "console.log(\"Variable ultimaPublicacionId limpiada del environment.\");"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation EliminarPublicacion($id: ID!) { eliminarPublicacion(id: $id) { id titulo tipo } }\",\r\n  \"variables\": {\r\n    \"id\": \"{{ultimaPublicacionId}}\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Dashboard / Seleccionadas",
+      "item": [
+        {
+          "name": "4.1. Ids seleccionados",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve un array de ids\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.idsSeleccionados).to.be.an(\"array\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query IdsSeleccionados { idsSeleccionados }\"\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.2. Listar seleccionadas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve un array de publicaciones seleccionadas\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.listarPublicacionesSeleccionadas).to.be.an(\"array\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query ListarPublicacionesSeleccionadas { listarPublicacionesSeleccionadas { id tipo titulo categoria fecha } }\"\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.3. Listar disponibles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve un array de publicaciones disponibles\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.listarPublicacionesDisponibles).to.be.an(\"array\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query ListarPublicacionesDisponibles { listarPublicacionesDisponibles { id tipo titulo fecha } }\"\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.4. Resumen del dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve los 4 totales del dashboard\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    const r = json.data.resumenDashboard;\r",
+                  "    pm.expect(r.totalOfertas).to.be.a(\"number\");\r",
+                  "    pm.expect(r.totalDemandas).to.be.a(\"number\");\r",
+                  "    pm.expect(r.totalUsuarios).to.be.a(\"number\");\r",
+                  "    pm.expect(r.totalSeleccionadas).to.be.a(\"number\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Los totales son consistentes (no negativos)\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    const r = json.data.resumenDashboard;\r",
+                  "    pm.expect(r.totalOfertas).to.be.at.least(0);\r",
+                  "    pm.expect(r.totalDemandas).to.be.at.least(0);\r",
+                  "    pm.expect(r.totalUsuarios).to.be.at.least(0);\r",
+                  "    pm.expect(r.totalSeleccionadas).to.be.at.least(0);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"query ResumenDashboard { resumenDashboard { totalOfertas totalDemandas totalUsuarios totalSeleccionadas } }\"\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.5. Añadir seleccionada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve la publicación añadida al panel\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.anadirSeleccionada).to.be.an(\"object\");\r",
+                  "    pm.expect(json.data.anadirSeleccionada.id).to.eql(\"1\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation AnadirSeleccionada($idPublicacion: ID!) { anadirSeleccionada(idPublicacion: $idPublicacion) { id titulo tipo } }\",\r\n  \"variables\": {\r\n    \"idPublicacion\": \"1\"\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4.6. Quitar seleccionada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Devuelve la publicación retirada del panel\", () => {\r",
+                  "    const json = pm.response.json();\r",
+                  "    pm.expect(json.errors).to.be.undefined;\r",
+                  "    pm.expect(json.data.quitarSeleccionada).to.be.an(\"object\");\r",
+                  "    pm.expect(json.data.quitarSeleccionada.id).to.eql(\"1\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation QuitarSeleccionada($idPublicacion: ID!) { quitarSeleccionada(idPublicacion: $idPublicacion) { id titulo tipo } }\",\r\n  \"variables\": {\r\n    \"idPublicacion\": \"1\"\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Tests de seguridad",
+      "item": [
+        {
+          "name": "5.1. Mutación SIN token (debe dar 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Tests negativos: el éxito del test es que la operación FALLE.\r",
+                  "// Si esta publicación se llegara a crear, la seguridad estaría rota.\r",
+                  "\r",
+                  "const json = pm.response.json();\r",
+                  "\r",
+                  "pm.test(\"Status code es 200 (GraphQL siempre responde 200, los errores van en el body)\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"La respuesta contiene un bloque 'errors'\", () => {\r",
+                  "    pm.expect(json.errors).to.be.an(\"array\");\r",
+                  "    pm.expect(json.errors.length).to.be.greaterThan(0);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El error es UNAUTHORIZED (no autenticado)\", () => {\r",
+                  "    const primerError = json.errors[0];\r",
+                  "    const codigo = primerError.extensions?.code;\r",
+                  "    pm.expect(codigo).to.eql(\"UNAUTHORIZED\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"La operación NO se ha ejecutado (data es null o crearPublicacion no existe)\", () => {\r",
+                  "    const seEjecuto = json.data && json.data.crearPublicacion;\r",
+                  "    pm.expect(seEjecuto).to.be.oneOf([null, undefined]);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El mensaje del error indica que falta el token JWT\", () => {\r",
+                  "    const mensaje = json.errors[0].message.toLowerCase();\r",
+                  "    pm.expect(mensaje).to.include(\"token\");\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation IntentoSinToken($datos: CrearPublicacionInput!) { crearPublicacion(datos: $datos) { id titulo } }\",\r\n  \"variables\": {\r\n    \"datos\": {\r\n      \"tipo\": \"oferta\",\r\n      \"titulo\": \"Esta no debería crearse\",\r\n      \"categoria\": \"Test\",\r\n      \"autor\": \"Hacker anónimo\",\r\n      \"ubicacion\": \"Internet\",\r\n      \"descripcion\": \"Si esta publicación se crea, la seguridad está rota.\",\r\n      \"emailContacto\": \"hacker@example.com\",\r\n      \"fecha\": \"2026-04-25\"\r\n    }\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5.2. Login con password incorrecta (debe dar 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Tests negativos: el login debe fallar porque la password es incorrecta.\r",
+                  "// Si este login pasara, bcrypt.compare() estaría roto.\r",
+                  "\r",
+                  "const json = pm.response.json();\r",
+                  "\r",
+                  "pm.test(\"Status code es 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"La respuesta contiene un bloque 'errors'\", () => {\r",
+                  "    pm.expect(json.errors).to.be.an(\"array\");\r",
+                  "    pm.expect(json.errors.length).to.be.greaterThan(0);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El error es UNAUTHORIZED\", () => {\r",
+                  "    const primerError = json.errors[0];\r",
+                  "    const codigo = primerError.extensions?.code;\r",
+                  "    pm.expect(codigo).to.eql(\"UNAUTHORIZED\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"No se ha emitido ningún token (login no se ha ejecutado)\", () => {\r",
+                  "    const seEjecuto = json.data && json.data.loginAdmin;\r",
+                  "    pm.expect(seEjecuto).to.be.oneOf([null, undefined]);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El mensaje no revela si el problema es email o password (defensa contra enumeración)\", () => {\r",
+                  "    const mensaje = json.errors[0].message.toLowerCase();\r",
+                  "    pm.expect(mensaje).to.satisfy(m =>\r",
+                  "        m.includes(\"credencial\") || m.includes(\"administrador\")\r",
+                  "    );\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"mutation LoginIncorrecto($email: String!, $password: String!) { loginAdmin(email: $email, password: $password) { token usuario { id email rol } } }\",\r\n  \"variables\": {\r\n    \"email\": \"{{adminEmail}}\",\r\n    \"password\": \"passwordCompletamenteIncorrecta12345\"\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

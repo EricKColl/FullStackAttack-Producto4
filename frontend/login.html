@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <!-- Configuración básica del documento -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Título mostrado en la pestaña del navegador -->
+  <title>JobConnect | Login</title>
+
+  <!-- Bootstrap 5 para diseño responsive y componentes visuales -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+
+  <!-- Hoja de estilos propia del proyecto -->
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">JobConnect</a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarLogin"
+        aria-controls="navbarLogin" aria-expanded="false" aria-label="Mostrar navegación">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarLogin">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link active" href="login.html">Login</a></li>
+          <li class="nav-item"><a class="nav-link" href="ofertas-demandas.html">Ofertas/Demandas</a></li>
+          <li class="nav-item"><a class="nav-link" href="usuarios.html">Usuarios</a></li>
+        </ul>
+
+        <div class="d-flex align-items-center gap-2">
+          <span class="navbar-text" id="usuarioActivo">Usuario activo: -no login-</span>
+          <button id="btn-cerrar-sesion" class="btn btn-sm btn-outline-light d-none" type="button">
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container py-4">
+    <section class="page-intro">
+      <h1 class="page-heading">Acceso a la aplicación</h1>
+      <p class="page-subtitle mb-0">
+        Inicia sesión con tus credenciales, consulta el estado actual del acceso y gestiona la sesión activa sin salir
+        de esta pantalla.
+      </p>
+    </section>
+
+    <div class="row justify-content-center g-4">
+      <div class="col-12 col-lg-7">
+        <div class="seccion-formulario h-100 login-panel">
+          <div class="section-heading-block">
+            <h2 class="section-title">Validación de acceso</h2>
+            <p class="section-subtitle">
+              Introduce el correo electrónico y la contraseña registrados en WebStorage para autenticar el acceso.
+            </p>
+          </div>
+
+          <form id="form-login" novalidate>
+            <div class="mb-3">
+              <label for="email-login" class="form-label">Correo electrónico</label>
+              <input type="email" class="form-control" id="email-login" placeholder="ejemplo@correo.com" required />
+            </div>
+
+            <div class="mb-3">
+              <label for="password-login" class="form-label">Contraseña</label>
+              <input type="password" class="form-control" id="password-login" placeholder="********" required />
+            </div>
+
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">Iniciar sesión</button>
+            </div>
+          </form>
+
+          <div id="mensaje-login" class="mt-3"></div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-5">
+        <div class="section-card h-100 session-panel p-4">
+          <div class="section-heading-block mb-3">
+            <h2 class="section-title">Estado de la sesión</h2>
+            <p class="section-subtitle">
+              Revisa qué usuario se encuentra autenticado y mantén el control sobre la sesión activa en cada momento.
+            </p>
+          </div>
+
+          <p id="usuario-activo-pagina" class="mb-0 text-center">
+            Comprobando el usuario activo...
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container text-center">
+      FULL STACK ATTACK · JobConnect · Producto 2
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"></script>
+
+  <script type="module" src="assets/js/int_2_login.js"></script>
+</body>
+
+</html>

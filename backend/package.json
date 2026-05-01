@@ -1,0 +1,43 @@
+{
+  "name": "fullstackattack-producto3",
+  "version": "1.0.0",
+  "description": "Producto 3 FP.450 — Backend GraphQL + MongoDB (JobConnect)",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "seed": "node src/seed/ejecutarSeed.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f mongo"
+  },
+  "keywords": [
+    "graphql",
+    "apollo",
+    "mongodb",
+    "express",
+    "jobconnect",
+    "fp450",
+    "uoc"
+  ],
+  "author": "Equipo FullStackAttack",
+  "license": "ISC",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@apollo/server": "^5.5.0",
+    "@as-integrations/express5": "^1.1.2",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "graphql": "^16.13.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
