@@ -1,51 +1,61 @@
 /**
  * @file src/config/db.js
- * @description Gestiona la conexión al servidor de MongoDB usando el driver nativo oficial.
+ * @description Gestiona la conexión a MongoDB usando dos mecanismos durante la migración del Producto 4:
  *
- * Este módulo implementa un patrón singleton: la conexión se establece una sola vez
- * al arrancar el servidor y se reutiliza durante toda la vida del proceso.
+ *   1. Driver nativo oficial de MongoDB:
+ *      - Se mantiene para no romper el backend heredado del Producto 3.
+ *      - Los modelos actuales siguen usando getDb() y db.collection(...).
  *
- * Funciones exportadas:
- *   - connectToMongo() → abre la conexión (llamar una sola vez al arrancar).
- *   - getDb()          → devuelve la referencia a la BBDD (usada por resolvers y models).
- *   - closeMongo()     → cierra la conexión limpiamente (usada en graceful shutdown).
+ *   2. Mongoose ODM:
+ *      - Se añade para cumplir los requisitos del Producto 4.
+ *      - Permitirá crear esquemas, modelos, validaciones, índices, hooks y agregaciones.
  *
- * Importante: este módulo NUNCA lee process.env directamente.
- * Toda la configuración proviene de src/config/env.js.
+ * Esta estrategia permite una migración progresiva y segura:
+ *
+ *   Producto 3:
+ *     MongoClient + db.collection(...)
+ *
+ *   Producto 4:
+ *     MongoClient temporal + Mongoose progresivo
+ *
+ * Cuando toda la capa de modelos haya sido migrada a Mongoose, el driver nativo podrá eliminarse.
  */
 
 import { MongoClient } from 'mongodb';
+import mongoose from 'mongoose';
 import { env } from './env.js';
 
 /**
- * Cliente de MongoDB. Se inicializa en connectToMongo() y se mantiene vivo
- * durante toda la ejecución del proceso.
+ * Cliente nativo de MongoDB.
+ * Se mantiene para compatibilidad con los models/resolvers actuales.
+ *
  * @type {MongoClient|null}
  */
 let client = null;
 
 /**
- * Referencia a la base de datos activa. Se obtiene a partir del cliente tras conectar.
+ * Referencia nativa a la base de datos activa.
+ *
  * @type {import('mongodb').Db|null}
  */
 let db = null;
 
 /**
- * Abre la conexión al servidor MongoDB y selecciona la base de datos indicada
- * en la variable de entorno MONGO_DB_NAME.
+ * Abre la conexión a MongoDB mediante el driver nativo y mediante Mongoose.
  *
- * Opciones del cliente:
- *   - serverSelectionTimeoutMS: 5000
- *     Si Mongo no responde en 5 segundos, falla inmediatamente en lugar de
- *     esperar indefinidamente. Esto es crítico en entornos sin Mongo arriba.
- *   - connectTimeoutMS: 5000
- *     Timeout para establecer la conexión TCP inicial.
+ * De momento se conectan ambos sistemas:
  *
- * @returns {Promise<import('mongodb').Db>} La referencia a la BBDD ya conectada.
- * @throws {Error} Si la conexión falla (servidor caído, credenciales inválidas, etc.).
+ * - MongoClient: necesario para que siga funcionando el código heredado del Producto 3.
+ * - Mongoose: necesario para iniciar la migración progresiva del Producto 4.
+ *
+ * @returns {Promise<import('mongodb').Db>} Referencia nativa a la base de datos.
+ * @throws {Error} Si alguna de las conexiones falla.
  */
 export async function connectToMongo() {
   try {
+    // ---------------------------------------------------------
+    // 1. Conexión con el driver nativo de MongoDB
+    // ---------------------------------------------------------
     client = new MongoClient(env.mongoUri, {
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 5000,
@@ -54,23 +64,45 @@ export async function connectToMongo() {
     await client.connect();
     db = client.db(env.mongoDbName);
 
-    console.log(`[db] Conectado a MongoDB: ${env.mongoDbName}`);
+    console.log(`[db] Conectado a MongoDB con driver nativo: ${env.mongoDbName}`);
+
+    // ---------------------------------------------------------
+    // 2. Conexión con Mongoose ODM
+    // ---------------------------------------------------------
+    await mongoose.connect(env.mongoUri, {
+      dbName: env.mongoDbName,
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+    });
+
+    console.log(`[db] Conectado a MongoDB con Mongoose: ${mongoose.connection.name}`);
+
     return db;
   } catch (error) {
     console.error('[db] Error al conectar con MongoDB:', error.message);
+
+    if (client) {
+      await client.close().catch(() => {});
+      client = null;
+      db = null;
+    }
+
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect().catch(() => {});
+    }
+
     throw error;
   }
 }
 
 /**
- * Devuelve la referencia a la base de datos activa.
+ * Devuelve la referencia nativa a la base de datos.
  *
- * Esta función es el punto de acceso a la BBDD para todo el resto del código
- * (resolvers, models, seed, etc.). Evita tener que pasar la conexión
- * por parámetros a través de toda la aplicación.
+ * Esta función se mantiene para que sigan funcionando los modelos actuales
+ * que todavía usan db.collection(...).
  *
- * @returns {import('mongodb').Db} La base de datos conectada.
- * @throws {Error} Si se llama antes de connectToMongo() (protección contra uso prematuro).
+ * @returns {import('mongodb').Db} Base de datos conectada mediante driver nativo.
+ * @throws {Error} Si se llama antes de connectToMongo().
  */
 export function getDb() {
   if (!db) {
@@ -79,16 +111,31 @@ export function getDb() {
       'Asegúrate de llamar a connectToMongo() antes de usar getDb().'
     );
   }
+
   return db;
 }
 
 /**
- * Cierra la conexión al servidor MongoDB de forma limpia.
+ * Devuelve la conexión activa de Mongoose.
  *
- * Se invoca típicamente desde el graceful shutdown del servidor (SIGINT/SIGTERM)
- * para liberar recursos antes de que el proceso termine.
+ * Esta función se usará durante el Producto 4 para comprobar el estado
+ * de Mongoose y para futuras necesidades de diagnóstico.
  *
- * Si la conexión ya estaba cerrada o nunca se abrió, la función no hace nada.
+ * @returns {typeof mongoose.connection} Conexión activa de Mongoose.
+ */
+export function getMongooseConnection() {
+  return mongoose.connection;
+}
+
+/**
+ * Cierra las conexiones a MongoDB de forma limpia.
+ *
+ * Cierra:
+ *
+ * - La conexión nativa de MongoClient.
+ * - La conexión de Mongoose.
+ *
+ * Se invoca normalmente desde el graceful shutdown del servidor.
  *
  * @returns {Promise<void>}
  */
@@ -97,6 +144,11 @@ export async function closeMongo() {
     await client.close();
     client = null;
     db = null;
-    console.log('[db] Conexión a MongoDB cerrada correctamente.');
+    console.log('[db] Conexión nativa a MongoDB cerrada correctamente.');
+  }
+
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+    console.log('[db] Conexión Mongoose cerrada correctamente.');
   }
 }
