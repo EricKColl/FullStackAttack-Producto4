@@ -4,7 +4,8 @@
  * de los documentos antes de enviarlos al frontend o a GraphQL.
  *
  * Objetivo:
- * - Convertir _id en id.
+ * - Mantener el campo id si el documento ya lo tiene.
+ * - Convertir _id en id solo cuando no exista un id propio.
  * - Eliminar _id.
  * - Eliminar __v.
  * - Mantener virtuals si el schema los usa.
@@ -21,7 +22,7 @@
  */
 export function cleanJsonPlugin(schema) {
   function transformDocument(_doc, ret) {
-    if (ret._id) {
+    if (ret._id && ret.id === undefined) {
       ret.id = ret._id.toString();
     }
 
