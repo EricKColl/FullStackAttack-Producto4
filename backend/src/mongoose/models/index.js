@@ -4,3 +4,4 @@
  */
 
 export { UsuarioMongoose } from './Usuario.js';
+export { PublicacionMongoose } from './Publicacion.js';
