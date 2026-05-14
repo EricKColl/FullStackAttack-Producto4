@@ -10,6 +10,7 @@
     "seed": "node src/seed/seed.js",
     "check:usuario-mongoose": "node src/scripts/checkUsuarioMongoose.js",
     "check:publicacion-mongoose": "node src/scripts/checkPublicacionMongoose.js",
+    "check:seleccionada-mongoose": "node src/scripts/checkSeleccionadaMongoose.js",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f mongo"
