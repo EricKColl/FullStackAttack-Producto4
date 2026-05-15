@@ -1,8 +1,7 @@
 import {
-  inicializarAlmacenamiento,
-  obtenerUsuarioActivo
-} from "./almacenaje.js";
-import { graphqlRequest, obtenerTokenGuardado } from "./api.js";
+  graphqlRequest,
+  obtenerTokenGuardado
+} from "./api.js";
 import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
 
 const RESUMEN_DASHBOARD = `
@@ -159,7 +158,6 @@ async function quitarSeleccionadaBackend(idPublicacion) {
   Función principal de arranque del dashboard.
 */
 async function inicializarDashboard() {
-  await inicializarAlmacenamiento();
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
   recuperarFiltroGuardado();

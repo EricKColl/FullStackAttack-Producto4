@@ -1,8 +1,8 @@
 import {
-  inicializarAlmacenamiento,
-  obtenerUsuarioActivo
-} from "./almacenaje.js";
-import { graphqlRequest, obtenerTokenGuardado } from "./api.js";
+  graphqlRequest,
+  obtenerTokenGuardado,
+  obtenerUsuarioAutenticado
+} from "./api.js";
 import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
 
 /*
@@ -100,7 +100,6 @@ async function eliminarPublicacionBackend(idPublicacion) {
   Esta función se ejecuta al cargar la página.
 */
 async function inicializarPaginaPublicaciones() {
-  await inicializarAlmacenamiento();
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
   completarDatosSugeridos();
@@ -125,7 +124,7 @@ async function inicializarPaginaPublicaciones() {
 */
 function completarDatosSugeridos() {
   fechaPublicacion.value = new Date().toISOString().split("T")[0];
-  const usuarioActivo = obtenerUsuarioActivo();
+  const usuarioActivo = obtenerUsuarioAutenticado();
 
   if (usuarioActivo) {
     autorPublicacion.value = `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
