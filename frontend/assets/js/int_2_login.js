@@ -1,10 +1,13 @@
 import { inicializarAlmacenamiento } from "./almacenaje.js";
+
 import {
+  borrarToken,
   graphqlRequest,
   guardarToken,
   guardarUsuarioAutenticado,
   obtenerUsuarioAutenticado
 } from "./api.js";
+
 import { configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
 
 const LOGIN_ADMIN = `
@@ -139,6 +142,14 @@ async function loginAdmin(email, password) {
 async function loginUsuarioNormal(email, password) {
   const data = await graphqlRequest(LOGIN_USUARIO, { email, password });
 
+  /*
+    Si el acceso correcto no es de administrador, eliminamos cualquier token
+    JWT anterior que pudiera quedar guardado de una sesión admin previa.
+
+    Así evitamos que la interfaz muestre un usuario normal mientras el
+    navegador conserva permisos de administrador en localStorage.
+  */
+  borrarToken();
   guardarUsuarioAutenticado(data.loguearUsuario);
 
   return data.loguearUsuario;
