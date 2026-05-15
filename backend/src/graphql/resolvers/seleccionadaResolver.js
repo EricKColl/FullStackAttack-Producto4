@@ -19,6 +19,7 @@
 
 import { requireAdmin } from '../../middleware/auth.js';
 import * as seleccionadaModel from '../../models/seleccionadaModel.js';
+import { emitirDashboardActualizado } from '../../socket.js';
 
 export const seleccionadaResolver = {
   Query: {
@@ -67,10 +68,12 @@ export const seleccionadaResolver = {
      * @param {{idPublicacion: string}} args
      * @param {{usuario: object|null}} context
      */
-    anadirSeleccionada: (_parent, args, context) => {
+    anadirSeleccionada: async (_parent, args, context) => {
       requireAdmin(context);
+      const seleccionada = await seleccionadaModel.anadirSeleccionada(args.idPublicacion);
+      emitirDashboardActualizado();
 
-      return seleccionadaModel.anadirSeleccionada(args.idPublicacion);
+      return seleccionada;
     },
 
     /**
@@ -84,10 +87,12 @@ export const seleccionadaResolver = {
      * @param {{idPublicacion: string}} args
      * @param {{usuario: object|null}} context
      */
-    quitarSeleccionada: (_parent, args, context) => {
+    quitarSeleccionada: async (_parent, args, context) => {
       requireAdmin(context);
+      const seleccionada = await seleccionadaModel.quitarSeleccionada(args.idPublicacion);
+      emitirDashboardActualizado();
 
-      return seleccionadaModel.quitarSeleccionada(args.idPublicacion);
+      return seleccionada;
     },
   },
 };

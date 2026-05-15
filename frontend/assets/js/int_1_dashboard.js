@@ -116,6 +116,7 @@ const botonesFiltro = document.querySelectorAll("[data-filtro]");
   Guarda qué filtro está activo en este momento.
 */
 let filtroActual = "todas";
+let socketDashboard = null;
 
 async function cargarResumenDashboard() {
   const data = await graphqlRequest(RESUMEN_DASHBOARD);
@@ -164,6 +165,7 @@ async function inicializarDashboard() {
   actualizarEstadoVisualFiltros();
   configurarFiltros();
   configurarZonasDrop();
+  configurarSocketDashboard();
   await repintarDashboard();
 }
 
@@ -187,6 +189,22 @@ function recuperarFiltroGuardado() {
 */
 function guardarFiltroActual() {
   localStorage.setItem(CLAVE_FILTRO_DASHBOARD, filtroActual);
+}
+
+function configurarSocketDashboard() {
+  if (typeof window.io !== "function") {
+    return;
+  }
+
+  if (socketDashboard) {
+    return;
+  }
+
+  socketDashboard = window.io("http://localhost:4000");
+
+  socketDashboard.on("dashboard:actualizado", async () => {
+    await repintarDashboard();
+  });
 }
 
 /*
