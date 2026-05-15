@@ -18,6 +18,11 @@
 import { requireAdmin } from '../../middleware/auth.js';
 import * as publicacionModel from '../../models/publicacionModel.js';
 import * as seleccionadaModel from '../../models/seleccionadaModel.js';
+import {
+  emitirDashboardActualizado,
+  emitirPublicacionesActualizadas,
+  emitirSeleccionadasActualizadas,
+} from '../../socket.js';
 
 export const publicacionResolver = {
   Query: {
@@ -72,10 +77,13 @@ export const publicacionResolver = {
      * @param {{datos: object}} args
      * @param {{usuario: object|null}} context
      */
-    crearPublicacion: (_parent, args, context) => {
+    crearPublicacion: async (_parent, args, context) => {
       requireAdmin(context);
+      const creada = await publicacionModel.crearPublicacion(args.datos);
+      emitirDashboardActualizado();
+      emitirPublicacionesActualizadas();
 
-      return publicacionModel.crearPublicacion(args.datos);
+      return creada;
     },
 
     /**
@@ -97,6 +105,9 @@ export const publicacionResolver = {
 
       const eliminada = await publicacionModel.eliminarPublicacionPorId(args.id);
       await seleccionadaModel.limpiarSeleccionesHuerfanas();
+      emitirDashboardActualizado();
+      emitirPublicacionesActualizadas();
+      emitirSeleccionadasActualizadas();
 
       return eliminada;
     },

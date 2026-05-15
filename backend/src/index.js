@@ -14,6 +14,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import http from 'http';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express5';
 
@@ -24,12 +25,14 @@ import { resolvers } from './graphql/resolvers/index.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 import { obtenerUsuarioDesdeRequest } from './middleware/auth.js';
 import { seedDatabase } from './seed/seed.js';
+import { inicializarSocketIo } from './socket.js';
 
 /**
  * Instancia del servidor Express.
  * Se configura dentro de startServer() tras conectar a Mongo y arrancar Apollo.
  */
 const app = express();
+const httpServer = http.createServer(app);
 
 /**
  * Instancia de Apollo Server con el schema y los resolvers del proyecto.
@@ -96,9 +99,12 @@ async function startServer() {
     app.use(errorHandler);
 
     // 9. Poner el servidor a escuchar.
-    app.listen(env.port, () => {
+    inicializarSocketIo(httpServer);
+
+    httpServer.listen(env.port, () => {
       console.log(`[server] Servidor escuchando en http://localhost:${env.port}`);
       console.log(`[server] GraphQL disponible en http://localhost:${env.port}/graphql`);
+      console.log(`[server] Socket.io disponible en http://localhost:${env.port}`);
       console.log(`[server] Entorno: ${env.nodeEnv}`);
     });
   } catch (error) {

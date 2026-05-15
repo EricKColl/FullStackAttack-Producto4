@@ -1,10 +1,11 @@
 import {
-  crearUsuario,
-  eliminarUsuario,
-  inicializarAlmacenamiento,
-  listarUsuarios,
-  obtenerUsuarioActivo
+  inicializarAlmacenamiento
 } from "./almacenaje.js";
+import {
+  graphqlRequest,
+  obtenerTokenGuardado,
+  obtenerUsuarioAutenticado
+} from "./api.js";
 import {
   capitalizarTexto,
   configurarBotonCerrarSesion,
@@ -12,6 +13,42 @@ import {
   obtenerClaseBadgeRol,
   pintarUsuarioEnNavbar
 } from "./ui.js";
+
+const LISTAR_USUARIOS = `
+  query ListarUsuarios {
+    listarUsuarios {
+      id
+      nombre
+      apellidos
+      email
+      rol
+    }
+  }
+`;
+
+const CREAR_USUARIO = `
+  mutation CrearUsuario($datos: CrearUsuarioInput!) {
+    crearUsuario(datos: $datos) {
+      id
+      nombre
+      apellidos
+      email
+      rol
+    }
+  }
+`;
+
+const ELIMINAR_USUARIO = `
+  mutation EliminarUsuario($email: String!) {
+    eliminarUsuario(email: $email) {
+      id
+      nombre
+      apellidos
+      email
+      rol
+    }
+  }
+`;
 
 /*
   Aquí buscamos y guardamos referencias a elementos del HTML.
@@ -30,6 +67,33 @@ const rolUsuario = document.getElementById("rol-usuario");
 const tablaUsuariosBody = document.getElementById("tabla-usuarios-body");
 const mensajeUsuario = document.getElementById("mensaje-usuario");
 
+async function cargarUsuariosBackend() {
+  const data = await graphqlRequest(LISTAR_USUARIOS);
+  return data.listarUsuarios;
+}
+
+async function crearUsuarioBackend(datosUsuario) {
+  const token = obtenerTokenGuardado();
+  const data = await graphqlRequest(
+    CREAR_USUARIO,
+    { datos: datosUsuario },
+    token
+  );
+
+  return data.crearUsuario;
+}
+
+async function eliminarUsuarioBackend(email) {
+  const token = obtenerTokenGuardado();
+  const data = await graphqlRequest(
+    ELIMINAR_USUARIO,
+    { email },
+    token
+  );
+
+  return data.eliminarUsuario;
+}
+
 /*
   Esta es la función principal de arranque de la página de usuarios.
 
@@ -44,7 +108,7 @@ async function inicializarPaginaUsuarios() {
   await inicializarAlmacenamiento();
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
-  pintarTablaUsuarios();
+  await pintarTablaUsuarios();
 
   /*
     Cuando se envíe el formulario,
@@ -66,7 +130,7 @@ function ocultarPassword(password) {
   const longitud = String(password || "").length;
 
   if (longitud === 0) {
-    return "";
+    return "No visible";
   }
 
   return "•".repeat(longitud);
@@ -80,8 +144,8 @@ function ocultarPassword(password) {
   2. si no hay usuarios, muestra una fila informativa
   3. si sí hay, crea una fila por cada usuario
 */
-function pintarTablaUsuarios() {
-  const usuarios = listarUsuarios();
+async function pintarTablaUsuarios() {
+  const usuarios = await cargarUsuariosBackend();
 
   /*
     Si no hay usuarios, metemos una única fila
@@ -182,7 +246,7 @@ function obtenerDatosFormulario() {
   Esta función se ejecuta cuando se envía el formulario
   para crear un nuevo usuario.
 */
-function gestionarAltaUsuario(evento) {
+async function gestionarAltaUsuario(evento) {
   /*
     Evitamos el comportamiento por defecto del formulario,
     que sería recargar la página.
@@ -199,7 +263,7 @@ function gestionarAltaUsuario(evento) {
       Creamos el usuario usando la función del módulo almacenaje.js.
       Esa función también valida los datos y guarda en localStorage.
     */
-    const usuario = crearUsuario(datosUsuario);
+    const usuario = await crearUsuarioBackend(datosUsuario);
 
     /*
       Después de crear el usuario:
@@ -207,7 +271,7 @@ function gestionarAltaUsuario(evento) {
       - repintamos la navbar
       - vaciamos el formulario
     */
-    pintarTablaUsuarios();
+    await pintarTablaUsuarios();
     pintarUsuarioEnNavbar();
     formUsuario.reset();
 
@@ -216,7 +280,7 @@ function gestionarAltaUsuario(evento) {
     */
     mostrarAlerta(
       mensajeUsuario,
-      `Usuario ${usuario.nombre} ${usuario.apellidos} creado correctamente en WebStorage.`,
+      `Usuario ${usuario.nombre} ${usuario.apellidos} creado correctamente en el backend.`,
       "success"
     );
   } catch (error) {
@@ -236,8 +300,8 @@ function gestionarAltaUsuario(evento) {
   - si el usuario a eliminar es el que tiene la sesión activa,
     se avisa de que la sesión se cerrará automáticamente
 */
-function gestionarBorradoUsuario(email, nombreCompleto) {
-  const usuarioActivo = obtenerUsuarioActivo();
+async function gestionarBorradoUsuario(email, nombreCompleto) {
+  const usuarioActivo = obtenerUsuarioAutenticado();
   const esUsuarioActivo = usuarioActivo && usuarioActivo.email === email;
 
   /*
@@ -257,8 +321,8 @@ function gestionarBorradoUsuario(email, nombreCompleto) {
   }
 
   try {
-    eliminarUsuario(email);
-    pintarTablaUsuarios();
+    await eliminarUsuarioBackend(email);
+    await pintarTablaUsuarios();
     pintarUsuarioEnNavbar();
 
     /*

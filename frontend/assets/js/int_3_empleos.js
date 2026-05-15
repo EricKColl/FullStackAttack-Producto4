@@ -1,10 +1,8 @@
 import {
-  crearPublicacion,
-  eliminarPublicacion,
-  inicializarAlmacenamiento,
-  listarPublicaciones,
-  obtenerUsuarioActivo
-} from "./almacenaje.js";
+  graphqlRequest,
+  obtenerTokenGuardado,
+  obtenerUsuarioAutenticado
+} from "./api.js";
 import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
 
 /*
@@ -24,20 +22,89 @@ const mensajePublicacion = document.getElementById("mensaje-publicacion");
 const canvasGrafico = document.getElementById("grafico-publicaciones");
 const estadoGrafico = document.getElementById("estado-grafico");
 
+const LISTAR_PUBLICACIONES = `
+  query ListarPublicaciones {
+    listarPublicaciones {
+      id
+      titulo
+      descripcion
+      tipo
+      categoria
+      autor
+      ubicacion
+      emailContacto
+      fecha
+    }
+  }
+`;
+
+const CREAR_PUBLICACION = `
+  mutation CrearPublicacion($datos: CrearPublicacionInput!) {
+    crearPublicacion(datos: $datos) {
+      id
+      titulo
+      descripcion
+      tipo
+      categoria
+      autor
+      ubicacion
+      emailContacto
+      fecha
+    }
+  }
+`;
+
+const ELIMINAR_PUBLICACION = `
+  mutation EliminarPublicacion($id: ID!) {
+    eliminarPublicacion(id: $id) {
+      id
+      titulo
+    }
+  }
+`;
+
 /*
   Temporizador para evitar redibujar demasiadas veces seguidas el gráfico
   cuando cambia el tamaño de la ventana.
 */
 let resizeTimeoutId = null;
+let socketPublicaciones = null;
+
+async function cargarPublicacionesBackend() {
+  const data = await graphqlRequest(LISTAR_PUBLICACIONES);
+  return data.listarPublicaciones;
+}
+
+async function crearPublicacionBackend(datosPublicacion) {
+  const token = obtenerTokenGuardado();
+  const data = await graphqlRequest(
+    CREAR_PUBLICACION,
+    { datos: datosPublicacion },
+    token
+  );
+
+  return data.crearPublicacion;
+}
+
+async function eliminarPublicacionBackend(idPublicacion) {
+  const token = obtenerTokenGuardado();
+  const data = await graphqlRequest(
+    ELIMINAR_PUBLICACION,
+    { id: String(idPublicacion) },
+    token
+  );
+
+  return data.eliminarPublicacion;
+}
 
 /*
   Esta función se ejecuta al cargar la página.
 */
 async function inicializarPaginaPublicaciones() {
-  await inicializarAlmacenamiento();
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
   completarDatosSugeridos();
+  configurarSocketPublicaciones();
   await pintarTablaPublicaciones();
   await pintarGraficoCanvas();
 
@@ -54,12 +121,29 @@ async function inicializarPaginaPublicaciones() {
   });
 }
 
+function configurarSocketPublicaciones() {
+  if (typeof window.io !== "function") {
+    return;
+  }
+
+  if (socketPublicaciones) {
+    return;
+  }
+
+  socketPublicaciones = window.io("http://localhost:4000");
+
+  socketPublicaciones.on("publicaciones:actualizadas", async () => {
+    await pintarTablaPublicaciones();
+    await pintarGraficoCanvas();
+  });
+}
+
 /*
   Esta función rellena automáticamente algunos campos del formulario.
 */
 function completarDatosSugeridos() {
   fechaPublicacion.value = new Date().toISOString().split("T")[0];
-  const usuarioActivo = obtenerUsuarioActivo();
+  const usuarioActivo = obtenerUsuarioAutenticado();
 
   if (usuarioActivo) {
     autorPublicacion.value = `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
@@ -87,7 +171,7 @@ function obtenerDatosFormulario() {
   Esta función pinta la tabla HTML con todas las publicaciones.
 */
 async function pintarTablaPublicaciones() {
-  const publicaciones = await listarPublicaciones();
+  const publicaciones = await cargarPublicacionesBackend();
 
   if (publicaciones.length === 0) {
     tablaPublicacionesBody.innerHTML = `
@@ -134,7 +218,7 @@ async function gestionarAltaPublicacion(evento) {
   evento.preventDefault();
 
   try {
-    await crearPublicacion(obtenerDatosFormulario());
+    await crearPublicacionBackend(obtenerDatosFormulario());
     await pintarTablaPublicaciones();
     await pintarGraficoCanvas();
     formPublicacion.reset();
@@ -142,7 +226,7 @@ async function gestionarAltaPublicacion(evento) {
 
     mostrarAlerta(
       mensajePublicacion,
-      "Publicación guardada correctamente en IndexedDB.",
+      "Publicación guardada correctamente en el backend.",
       "success"
     );
   } catch (error) {
@@ -164,7 +248,7 @@ async function gestionarBorradoPublicacion(idPublicacion, tituloPublicacion) {
   }
 
   try {
-    await eliminarPublicacion(idPublicacion);
+    await eliminarPublicacionBackend(idPublicacion);
     await pintarTablaPublicaciones();
     await pintarGraficoCanvas();
 
@@ -247,7 +331,7 @@ async function pintarGraficoCanvas() {
     return;
   }
 
-  const publicaciones = await listarPublicaciones();
+  const publicaciones = await cargarPublicacionesBackend();
   const totalOfertas = publicaciones.filter((publicacion) => publicacion.tipo === "oferta").length;
   const totalDemandas = publicaciones.filter((publicacion) => publicacion.tipo === "demanda").length;
   const totalPublicaciones = totalOfertas + totalDemandas;

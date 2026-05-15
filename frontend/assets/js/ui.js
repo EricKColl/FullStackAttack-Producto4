@@ -1,4 +1,4 @@
-import { cerrarSesion, obtenerUsuarioActivo } from "./almacenaje.js";
+import { borrarToken, borrarUsuarioAutenticado, obtenerUsuarioAutenticado } from "./api.js";
 
 /*
   Tiempo por defecto que estará visible una alerta.
@@ -15,7 +15,7 @@ const DURACION_ALERTA_POR_DEFECTO = 4000;
   Sirve como función auxiliar para mostrar fácilmente el usuario actual.
 */
 export function obtenerTextoUsuarioActivo() {
-  const usuarioActivo = obtenerUsuarioActivo();
+  const usuarioActivo = obtenerUsuarioAutenticado();
 
   /*
     Si no hay usuario activo, devolvemos un texto por defecto.
@@ -66,7 +66,7 @@ export function pintarUsuarioEnNavbar() {
   /*
     Obtenemos el usuario activo desde almacenaje.js
   */
-  const usuarioActivo = obtenerUsuarioActivo();
+  const usuarioActivo = obtenerUsuarioAutenticado();
 
   /*
     Si no hay usuario activo:
@@ -132,7 +132,8 @@ export function configurarBotonCerrarSesion() {
       return;
     }
 
-    cerrarSesion();
+    borrarToken();
+    borrarUsuarioAutenticado();
     window.location.href = "login.html";
   });
 }

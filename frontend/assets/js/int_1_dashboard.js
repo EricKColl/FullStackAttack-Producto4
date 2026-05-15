@@ -1,12 +1,69 @@
 import {
-  anadirPublicacionSeleccionada,
-  inicializarAlmacenamiento,
-  listarPublicacionesDisponibles,
-  listarPublicacionesSeleccionadas,
-  obtenerResumenDashboard,
-  quitarPublicacionSeleccionada
-} from "./almacenaje.js";
+  graphqlRequest,
+  obtenerTokenGuardado
+} from "./api.js";
 import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
+
+const RESUMEN_DASHBOARD = `
+  query ResumenDashboard {
+    resumenDashboard {
+      totalOfertas
+      totalDemandas
+      totalUsuarios
+      totalSeleccionadas
+    }
+  }
+`;
+
+const LISTAR_PUBLICACIONES_DISPONIBLES = `
+  query ListarPublicacionesDisponibles {
+    listarPublicacionesDisponibles {
+      id
+      titulo
+      descripcion
+      tipo
+      categoria
+      autor
+      ubicacion
+      emailContacto
+      fecha
+    }
+  }
+`;
+
+const LISTAR_PUBLICACIONES_SELECCIONADAS = `
+  query ListarPublicacionesSeleccionadas {
+    listarPublicacionesSeleccionadas {
+      id
+      titulo
+      descripcion
+      tipo
+      categoria
+      autor
+      ubicacion
+      emailContacto
+      fecha
+    }
+  }
+`;
+
+const ANADIR_SELECCIONADA = `
+  mutation AnadirSeleccionada($idPublicacion: ID!) {
+    anadirSeleccionada(idPublicacion: $idPublicacion) {
+      id
+      titulo
+    }
+  }
+`;
+
+const QUITAR_SELECCIONADA = `
+  mutation QuitarSeleccionada($idPublicacion: ID!) {
+    quitarSeleccionada(idPublicacion: $idPublicacion) {
+      id
+      titulo
+    }
+  }
+`;
 
 /*
   Clave usada en localStorage para recordar qué filtro del dashboard
@@ -59,18 +116,56 @@ const botonesFiltro = document.querySelectorAll("[data-filtro]");
   Guarda qué filtro está activo en este momento.
 */
 let filtroActual = "todas";
+let socketDashboard = null;
+
+async function cargarResumenDashboard() {
+  const data = await graphqlRequest(RESUMEN_DASHBOARD);
+  return data.resumenDashboard;
+}
+
+async function cargarPublicacionesDisponibles() {
+  const data = await graphqlRequest(LISTAR_PUBLICACIONES_DISPONIBLES);
+  return data.listarPublicacionesDisponibles;
+}
+
+async function cargarPublicacionesSeleccionadas() {
+  const data = await graphqlRequest(LISTAR_PUBLICACIONES_SELECCIONADAS);
+  return data.listarPublicacionesSeleccionadas;
+}
+
+async function anadirSeleccionadaBackend(idPublicacion) {
+  const token = obtenerTokenGuardado();
+  const data = await graphqlRequest(
+    ANADIR_SELECCIONADA,
+    { idPublicacion: String(idPublicacion) },
+    token
+  );
+
+  return data.anadirSeleccionada;
+}
+
+async function quitarSeleccionadaBackend(idPublicacion) {
+  const token = obtenerTokenGuardado();
+  const data = await graphqlRequest(
+    QUITAR_SELECCIONADA,
+    { idPublicacion: String(idPublicacion) },
+    token
+  );
+
+  return data.quitarSeleccionada;
+}
 
 /*
   Función principal de arranque del dashboard.
 */
 async function inicializarDashboard() {
-  await inicializarAlmacenamiento();
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
   recuperarFiltroGuardado();
   actualizarEstadoVisualFiltros();
   configurarFiltros();
   configurarZonasDrop();
+  configurarSocketDashboard();
   await repintarDashboard();
 }
 
@@ -94,6 +189,22 @@ function recuperarFiltroGuardado() {
 */
 function guardarFiltroActual() {
   localStorage.setItem(CLAVE_FILTRO_DASHBOARD, filtroActual);
+}
+
+function configurarSocketDashboard() {
+  if (typeof window.io !== "function") {
+    return;
+  }
+
+  if (socketDashboard) {
+    return;
+  }
+
+  socketDashboard = window.io("http://localhost:4000");
+
+  socketDashboard.on("dashboard:actualizado", async () => {
+    await repintarDashboard();
+  });
 }
 
 /*
@@ -148,7 +259,7 @@ function configurarZonasDrop() {
     const id = evento.dataTransfer.getData("text/plain");
 
     try {
-      await quitarPublicacionSeleccionada(id);
+      await quitarSeleccionadaBackend(id);
       await repintarDashboard();
       mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado general.", "success");
     } catch (error) {
@@ -162,7 +273,7 @@ function configurarZonasDrop() {
     const id = evento.dataTransfer.getData("text/plain");
 
     try {
-      await anadirPublicacionSeleccionada(id);
+      await anadirSeleccionadaBackend(id);
       await repintarDashboard();
       mostrarAlerta(mensajeDashboard, "Publicación añadida a la selección del usuario.", "success");
     } catch (error) {
@@ -176,7 +287,7 @@ function configurarZonasDrop() {
 */
 async function moverASeleccionadas(idPublicacion) {
   try {
-    await anadirPublicacionSeleccionada(idPublicacion);
+    await anadirSeleccionadaBackend(idPublicacion);
     await repintarDashboard();
     mostrarAlerta(mensajeDashboard, "Publicación añadida a la selección del usuario.", "success");
   } catch (error) {
@@ -193,7 +304,7 @@ async function moverASeleccionadas(idPublicacion) {
 */
 async function moverADisponibles(idPublicacion) {
   try {
-    await quitarPublicacionSeleccionada(idPublicacion);
+    await quitarSeleccionadaBackend(idPublicacion);
     await repintarDashboard();
     mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado general.", "success");
   } catch (error) {
@@ -214,7 +325,7 @@ async function repintarDashboard() {
   y coloca cada dato en su elemento HTML correspondiente.
 */
 async function pintarResumen() {
-  const resumen = await obtenerResumenDashboard();
+  const resumen = await cargarResumenDashboard();
 
   totalOfertasElemento.textContent = resumen.totalOfertas;
   totalDemandasElemento.textContent = resumen.totalDemandas;
@@ -226,8 +337,8 @@ async function pintarResumen() {
   Pinta las tarjetas de ambas zonas.
 */
 async function pintarTarjetas() {
-  const publicacionesDisponibles = await listarPublicacionesDisponibles();
-  const publicacionesSeleccionadas = await listarPublicacionesSeleccionadas();
+  const publicacionesDisponibles = await cargarPublicacionesDisponibles();
+  const publicacionesSeleccionadas = await cargarPublicacionesSeleccionadas();
 
   const disponiblesFiltradas = publicacionesDisponibles.filter((publicacion) => {
     if (filtroActual === "todas") {
