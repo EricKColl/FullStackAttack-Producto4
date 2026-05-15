@@ -1,11 +1,15 @@
 import {
   inicializarAlmacenamiento
 } from "./almacenaje.js";
+
 import {
+  borrarToken,
+  borrarUsuarioAutenticado,
   graphqlRequest,
   obtenerTokenGuardado,
   obtenerUsuarioAutenticado
 } from "./api.js";
+
 import {
   capitalizarTexto,
   configurarBotonCerrarSesion,
@@ -321,19 +325,35 @@ async function gestionarBorradoUsuario(email, nombreCompleto) {
   }
 
   try {
-    await eliminarUsuarioBackend(email);
+        await eliminarUsuarioBackend(email);
+
+    if (esUsuarioActivo) {
+      borrarToken();
+      borrarUsuarioAutenticado();
+      pintarUsuarioEnNavbar();
+
+      mostrarAlerta(
+        mensajeUsuario,
+        `Usuario "${nombreCompleto}" eliminado correctamente. La sesión activa se ha cerrado y serás redirigido/a al login.`,
+        "success",
+        2000
+      );
+
+      window.setTimeout(() => {
+        window.location.href = "login.html";
+      }, 2000);
+
+      return;
+    }
+
     await pintarTablaUsuarios();
     pintarUsuarioEnNavbar();
 
-    /*
-      También diferenciamos el mensaje final según si el usuario borrado
-      era el que estaba logueado.
-    */
-    const mensajeExito = esUsuarioActivo
-      ? `Usuario "${nombreCompleto}" eliminado correctamente. La sesión activa se ha cerrado.`
-      : `Usuario "${nombreCompleto}" eliminado correctamente.`;
-
-    mostrarAlerta(mensajeUsuario, mensajeExito, "success");
+    mostrarAlerta(
+      mensajeUsuario,
+      `Usuario "${nombreCompleto}" eliminado correctamente.`,
+      "success"
+    );
   } catch (error) {
     mostrarAlerta(mensajeUsuario, error.message, "danger");
   }
