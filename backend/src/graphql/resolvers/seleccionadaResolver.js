@@ -19,7 +19,10 @@
 
 import { requireAdmin } from '../../middleware/auth.js';
 import * as seleccionadaModel from '../../models/seleccionadaModel.js';
-import { emitirDashboardActualizado } from '../../socket.js';
+import {
+  emitirDashboardActualizado,
+  emitirSeleccionadasActualizadas,
+} from '../../socket.js';
 
 export const seleccionadaResolver = {
   Query: {
@@ -72,6 +75,7 @@ export const seleccionadaResolver = {
       requireAdmin(context);
       const seleccionada = await seleccionadaModel.anadirSeleccionada(args.idPublicacion);
       emitirDashboardActualizado();
+      emitirSeleccionadasActualizadas();
 
       return seleccionada;
     },
@@ -91,6 +95,7 @@ export const seleccionadaResolver = {
       requireAdmin(context);
       const seleccionada = await seleccionadaModel.quitarSeleccionada(args.idPublicacion);
       emitirDashboardActualizado();
+      emitirSeleccionadasActualizadas();
 
       return seleccionada;
     },

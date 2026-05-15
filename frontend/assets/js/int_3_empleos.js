@@ -68,6 +68,7 @@ const ELIMINAR_PUBLICACION = `
   cuando cambia el tamaño de la ventana.
 */
 let resizeTimeoutId = null;
+let socketPublicaciones = null;
 
 async function cargarPublicacionesBackend() {
   const data = await graphqlRequest(LISTAR_PUBLICACIONES);
@@ -103,6 +104,7 @@ async function inicializarPaginaPublicaciones() {
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
   completarDatosSugeridos();
+  configurarSocketPublicaciones();
   await pintarTablaPublicaciones();
   await pintarGraficoCanvas();
 
@@ -116,6 +118,23 @@ async function inicializarPaginaPublicaciones() {
     resizeTimeoutId = window.setTimeout(() => {
       pintarGraficoCanvas();
     }, 150);
+  });
+}
+
+function configurarSocketPublicaciones() {
+  if (typeof window.io !== "function") {
+    return;
+  }
+
+  if (socketPublicaciones) {
+    return;
+  }
+
+  socketPublicaciones = window.io("http://localhost:4000");
+
+  socketPublicaciones.on("publicaciones:actualizadas", async () => {
+    await pintarTablaPublicaciones();
+    await pintarGraficoCanvas();
   });
 }
 

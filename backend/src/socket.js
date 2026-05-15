@@ -32,3 +32,19 @@ export function emitirDashboardActualizado() {
 
   io.emit('dashboard:actualizado');
 }
+
+export function emitirPublicacionesActualizadas() {
+  if (!io) {
+    return;
+  }
+
+  io.emit('publicaciones:actualizadas');
+}
+
+export function emitirSeleccionadasActualizadas() {
+  if (!io) {
+    return;
+  }
+
+  io.emit('seleccionadas:actualizadas');
+}

@@ -18,7 +18,11 @@
 import { requireAdmin } from '../../middleware/auth.js';
 import * as publicacionModel from '../../models/publicacionModel.js';
 import * as seleccionadaModel from '../../models/seleccionadaModel.js';
-import { emitirDashboardActualizado } from '../../socket.js';
+import {
+  emitirDashboardActualizado,
+  emitirPublicacionesActualizadas,
+  emitirSeleccionadasActualizadas,
+} from '../../socket.js';
 
 export const publicacionResolver = {
   Query: {
@@ -77,6 +81,7 @@ export const publicacionResolver = {
       requireAdmin(context);
       const creada = await publicacionModel.crearPublicacion(args.datos);
       emitirDashboardActualizado();
+      emitirPublicacionesActualizadas();
 
       return creada;
     },
@@ -101,6 +106,8 @@ export const publicacionResolver = {
       const eliminada = await publicacionModel.eliminarPublicacionPorId(args.id);
       await seleccionadaModel.limpiarSeleccionesHuerfanas();
       emitirDashboardActualizado();
+      emitirPublicacionesActualizadas();
+      emitirSeleccionadasActualizadas();
 
       return eliminada;
     },
