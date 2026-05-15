@@ -1,5 +1,38 @@
-import { inicializarAlmacenamiento, loguearUsuario, obtenerUsuarioActivo } from "./almacenaje.js";
+import { inicializarAlmacenamiento } from "./almacenaje.js";
+import {
+  graphqlRequest,
+  guardarToken,
+  guardarUsuarioAutenticado,
+  obtenerUsuarioAutenticado
+} from "./api.js";
 import { configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
+
+const LOGIN_ADMIN = `
+  mutation LoginAdmin($email: String!, $password: String!) {
+    loginAdmin(email: $email, password: $password) {
+      token
+      usuario {
+        id
+        nombre
+        apellidos
+        email
+        rol
+      }
+    }
+  }
+`;
+
+const LOGIN_USUARIO = `
+  mutation LoguearUsuario($email: String!, $password: String!) {
+    loguearUsuario(email: $email, password: $password) {
+      id
+      nombre
+      apellidos
+      email
+      rol
+    }
+  }
+`;
 
 /*
   Referencias a los elementos HTML de la página de login.
@@ -45,7 +78,7 @@ async function inicializarPaginaLogin() {
   decida qué hacer.
 */
 function mostrarAvisoSesionActivaSiCorresponde() {
-  const usuarioActivo = obtenerUsuarioActivo();
+  const usuarioActivo = obtenerUsuarioAutenticado();
 
   if (!usuarioActivo) {
     return;
@@ -63,7 +96,7 @@ function mostrarAvisoSesionActivaSiCorresponde() {
   Muestra dentro de la página si hay un usuario activo o no.
 */
 function mostrarUsuarioActivoEnPagina() {
-  const usuarioActivo = obtenerUsuarioActivo();
+  const usuarioActivo = obtenerUsuarioAutenticado();
 
   if (!usuarioActivo) {
     usuarioActivoPagina.textContent = "Ahora mismo no hay ningún usuario logueado.";
@@ -94,6 +127,23 @@ function redirigirAlDashboard() {
   window.location.href = "dashboard.html";
 }
 
+async function loginAdmin(email, password) {
+  const data = await graphqlRequest(LOGIN_ADMIN, { email, password });
+
+  guardarToken(data.loginAdmin.token);
+  guardarUsuarioAutenticado(data.loginAdmin.usuario);
+
+  return data.loginAdmin.usuario;
+}
+
+async function loginUsuarioNormal(email, password) {
+  const data = await graphqlRequest(LOGIN_USUARIO, { email, password });
+
+  guardarUsuarioAutenticado(data.loguearUsuario);
+
+  return data.loguearUsuario;
+}
+
 /*
   Gestiona el envío del formulario de login.
 */
@@ -102,7 +152,13 @@ async function gestionarLogin(evento) {
 
   try {
     const { email, password } = validarFormulario();
-    const usuario = loguearUsuario(email, password);
+    let usuario = null;
+
+    try {
+      usuario = await loginAdmin(email, password);
+    } catch (errorAdmin) {
+      usuario = await loginUsuarioNormal(email, password);
+    }
 
     pintarUsuarioEnNavbar();
     mostrarUsuarioActivoEnPagina();
