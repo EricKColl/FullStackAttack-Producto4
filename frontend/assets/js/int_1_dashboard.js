@@ -1,6 +1,6 @@
 import {
   graphqlRequest,
-  obtenerTokenGuardado
+  obtenerTokenAdminObligatorio
 } from "./api.js";
 import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
 
@@ -66,19 +66,15 @@ const QUITAR_SELECCIONADA = `
 `;
 
 /*
-  Clave usada en localStorage para recordar qué filtro del dashboard
-  estaba activo la última vez.
+  Clave usada en localStorage para recordar el filtro visual activo.
+
+  En Producto 4, localStorage no se utiliza como persistencia principal
+  de publicaciones. Solo se conserva aquí una preferencia de interfaz.
 */
 const CLAVE_FILTRO_DASHBOARD = "jobconnect_dashboard_filtro";
 
 /*
-  Referencias a elementos del HTML que vamos a usar en el dashboard.
-
-  Estos cuatro muestran los números del resumen superior:
-  - total de ofertas
-  - total de demandas
-  - total de usuarios
-  - total de seleccionadas
+  Referencias a elementos del HTML que muestran el resumen superior.
 */
 const totalOfertasElemento = document.getElementById("total-ofertas");
 const totalDemandasElemento = document.getElementById("total-demandas");
@@ -86,18 +82,14 @@ const totalUsuariosElemento = document.getElementById("total-usuarios");
 const totalSeleccionadasElemento = document.getElementById("total-seleccionadas");
 
 /*
-  Estos son los contenedores internos donde pintamos las tarjetas:
-  - publicaciones disponibles
-  - publicaciones seleccionadas
+  Contenedores internos donde se pintan las tarjetas del dashboard.
 */
 const contenedorDisponibles = document.getElementById("contenedor-publicaciones");
 const contenedorSeleccionadas = document.getElementById("contenedor-seleccionadas");
 
 /*
-  closest(".drop-zone") busca el ancestro más cercano que tenga la clase .drop-zone.
-
-  Esto es importante porque el drag and drop se apoya en la zona visual completa,
-  no solo en el contenedor interno de tarjetas.
+  closest(".drop-zone") busca el ancestro más cercano con clase .drop-zone.
+  Esto permite que el drag and drop funcione sobre toda la zona visual.
 */
 const zonaDisponibles = contenedorDisponibles.closest(".drop-zone");
 const zonaSeleccionadas = contenedorSeleccionadas.closest(".drop-zone");
@@ -108,15 +100,16 @@ const zonaSeleccionadas = contenedorSeleccionadas.closest(".drop-zone");
 const mensajeDashboard = document.getElementById("mensaje-dashboard");
 
 /*
-  Lista de botones de filtro.
+  Botones de filtrado visual.
 */
 const botonesFiltro = document.querySelectorAll("[data-filtro]");
 
 /*
-  Guarda qué filtro está activo en este momento.
+  Estado visual del dashboard.
 */
 let filtroActual = "todas";
 let socketDashboard = null;
+let refrescoDashboardTimeoutId = null;
 
 async function cargarResumenDashboard() {
   const data = await graphqlRequest(RESUMEN_DASHBOARD);
@@ -134,7 +127,8 @@ async function cargarPublicacionesSeleccionadas() {
 }
 
 async function anadirSeleccionadaBackend(idPublicacion) {
-  const token = obtenerTokenGuardado();
+  const token = obtenerTokenAdminObligatorio();
+
   const data = await graphqlRequest(
     ANADIR_SELECCIONADA,
     { idPublicacion: String(idPublicacion) },
@@ -145,7 +139,8 @@ async function anadirSeleccionadaBackend(idPublicacion) {
 }
 
 async function quitarSeleccionadaBackend(idPublicacion) {
-  const token = obtenerTokenGuardado();
+  const token = obtenerTokenAdminObligatorio();
+
   const data = await graphqlRequest(
     QUITAR_SELECCIONADA,
     { idPublicacion: String(idPublicacion) },
@@ -166,7 +161,12 @@ async function inicializarDashboard() {
   configurarFiltros();
   configurarZonasDrop();
   configurarSocketDashboard();
-  await repintarDashboard();
+
+  try {
+    await repintarDashboard();
+  } catch (error) {
+    mostrarAlerta(mensajeDashboard, error.message, "danger", 0);
+  }
 }
 
 /*
@@ -191,6 +191,34 @@ function guardarFiltroActual() {
   localStorage.setItem(CLAVE_FILTRO_DASHBOARD, filtroActual);
 }
 
+/*
+  Programa un repintado del dashboard con una pequeña espera.
+
+  Esto evita repintados duplicados cuando el backend emite varios eventos
+  seguidos, por ejemplo al crear o eliminar una publicación.
+*/
+function programarRepintadoDashboard() {
+  if (refrescoDashboardTimeoutId) {
+    window.clearTimeout(refrescoDashboardTimeoutId);
+  }
+
+  refrescoDashboardTimeoutId = window.setTimeout(async () => {
+    try {
+      await repintarDashboard();
+    } catch (error) {
+      mostrarAlerta(mensajeDashboard, error.message, "danger");
+    }
+  }, 120);
+}
+
+/*
+  Configura Socket.io para actualizar el dashboard sin recargar la página.
+
+  El dashboard escucha varios eventos porque sus datos pueden cambiar cuando:
+  - se crea o elimina una publicación;
+  - se añade o quita una publicación seleccionada;
+  - se actualizan los contadores generales.
+*/
 function configurarSocketDashboard() {
   if (typeof window.io !== "function") {
     return;
@@ -202,9 +230,9 @@ function configurarSocketDashboard() {
 
   socketDashboard = window.io("http://localhost:4000");
 
-  socketDashboard.on("dashboard:actualizado", async () => {
-    await repintarDashboard();
-  });
+  socketDashboard.on("dashboard:actualizado", programarRepintadoDashboard);
+  socketDashboard.on("publicaciones:actualizadas", programarRepintadoDashboard);
+  socketDashboard.on("seleccionadas:actualizadas", programarRepintadoDashboard);
 }
 
 /*
@@ -216,7 +244,12 @@ function configurarFiltros() {
       filtroActual = boton.dataset.filtro;
       guardarFiltroActual();
       actualizarEstadoVisualFiltros();
-      await pintarTarjetas();
+
+      try {
+        await pintarTarjetas();
+      } catch (error) {
+        mostrarAlerta(mensajeDashboard, error.message, "danger");
+      }
     });
   });
 }
@@ -298,9 +331,9 @@ async function moverASeleccionadas(idPublicacion) {
 /*
   Devuelve una publicación al bloque de disponibles.
 
-  Esta función se reutiliza en dos acciones distintas:
-  - doble clic sobre una tarjeta seleccionada
-  - botón con X dentro de la propia tarjeta seleccionada
+  Esta función se reutiliza en dos acciones:
+  - doble clic sobre una tarjeta seleccionada;
+  - botón de cierre dentro de la tarjeta seleccionada.
 */
 async function moverADisponibles(idPublicacion) {
   try {
@@ -321,8 +354,8 @@ async function repintarDashboard() {
 }
 
 /*
-  Pide el resumen al módulo de almacenamiento
-  y coloca cada dato en su elemento HTML correspondiente.
+  Pide al backend el resumen del dashboard y coloca cada dato
+  en su elemento HTML correspondiente.
 */
 async function pintarResumen() {
   const resumen = await cargarResumenDashboard();
@@ -334,7 +367,7 @@ async function pintarResumen() {
 }
 
 /*
-  Pinta las tarjetas de ambas zonas.
+  Pinta las tarjetas de publicaciones disponibles y seleccionadas.
 */
 async function pintarTarjetas() {
   const publicacionesDisponibles = await cargarPublicacionesDisponibles();
@@ -453,7 +486,6 @@ function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
 }
 
 /*
-  Cuando el DOM ya está cargado,
-  arrancamos toda la lógica del dashboard.
+  Cuando el DOM ya está cargado, arrancamos toda la lógica del dashboard.
 */
 window.addEventListener("DOMContentLoaded", inicializarDashboard);

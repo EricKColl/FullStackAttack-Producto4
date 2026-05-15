@@ -1,15 +1,13 @@
 import {
   inicializarAlmacenamiento
 } from "./almacenaje.js";
-
 import {
   borrarToken,
   borrarUsuarioAutenticado,
   graphqlRequest,
-  obtenerTokenGuardado,
+  obtenerTokenAdminObligatorio,
   obtenerUsuarioAutenticado
 } from "./api.js";
-
 import {
   capitalizarTexto,
   configurarBotonCerrarSesion,
@@ -55,12 +53,13 @@ const ELIMINAR_USUARIO = `
 `;
 
 /*
-  Aquí buscamos y guardamos referencias a elementos del HTML.
+  Referencias principales a elementos del HTML.
 
-  Los vamos a necesitar para:
-  - leer los datos del formulario de alta de usuario
-  - pintar la tabla de usuarios
-  - mostrar mensajes de éxito o error
+  Estos elementos permiten:
+  - leer los datos del formulario de alta de usuario;
+  - pintar la tabla de usuarios recibidos desde GraphQL;
+  - mostrar mensajes de éxito o error;
+  - ejecutar acciones protegidas usando el token JWT de administrador.
 */
 const formUsuario = document.getElementById("form-usuario");
 const nombreUsuario = document.getElementById("nombre-usuario");
@@ -77,7 +76,8 @@ async function cargarUsuariosBackend() {
 }
 
 async function crearUsuarioBackend(datosUsuario) {
-  const token = obtenerTokenGuardado();
+  const token = obtenerTokenAdminObligatorio();
+
   const data = await graphqlRequest(
     CREAR_USUARIO,
     { datos: datosUsuario },
@@ -88,7 +88,8 @@ async function crearUsuarioBackend(datosUsuario) {
 }
 
 async function eliminarUsuarioBackend(email) {
-  const token = obtenerTokenGuardado();
+  const token = obtenerTokenAdminObligatorio();
+
   const data = await graphqlRequest(
     ELIMINAR_USUARIO,
     { email },
@@ -99,36 +100,34 @@ async function eliminarUsuarioBackend(email) {
 }
 
 /*
-  Esta es la función principal de arranque de la página de usuarios.
+  Función principal de arranque de la página de usuarios.
 
-  Hace estas tareas:
-  1. inicializa el almacenamiento por si aún no existen datos iniciales
-  2. pinta el usuario activo en la navbar
-  3. configura el botón de cerrar sesión
-  4. pinta la tabla de usuarios
-  5. conecta el formulario con la función que crea usuarios
+  Flujo:
+  1. Mantiene la inicialización heredada del frontend para no romper compatibilidad.
+  2. Pinta el usuario autenticado en la navbar usando la sesión centralizada de api.js.
+  3. Configura el botón de cerrar sesión.
+  4. Consulta los usuarios reales desde el backend mediante GraphQL.
+  5. Conecta el formulario con la mutation crearUsuario.
 */
 async function inicializarPaginaUsuarios() {
   await inicializarAlmacenamiento();
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
-  await pintarTablaUsuarios();
 
-  /*
-    Cuando se envíe el formulario,
-    se ejecutará gestionarAltaUsuario.
-  */
+  try {
+    await pintarTablaUsuarios();
+  } catch (error) {
+    mostrarAlerta(mensajeUsuario, error.message, "danger", 0);
+  }
+
   formUsuario.addEventListener("submit", gestionarAltaUsuario);
 }
 
 /*
   Devuelve una versión oculta de la contraseña para mostrarla en la tabla.
 
-  No cambia la contraseña real almacenada.
-  Solo evita que se vea en texto plano en pantalla.
-
-  Ejemplo:
-  "1234" -> "••••"
+  La API GraphQL no devuelve contraseñas reales por seguridad.
+  Por tanto, en la práctica se mostrará "No visible" cuando el campo no exista.
 */
 function ocultarPassword(password) {
   const longitud = String(password || "").length;
@@ -141,20 +140,14 @@ function ocultarPassword(password) {
 }
 
 /*
-  Esta función pinta en la tabla todos los usuarios guardados.
+  Pinta en la tabla los usuarios recibidos desde el backend.
 
-  Hace esto:
-  1. pide la lista de usuarios a almacenaje.js
-  2. si no hay usuarios, muestra una fila informativa
-  3. si sí hay, crea una fila por cada usuario
+  La información se obtiene mediante la query listarUsuarios.
+  No se usa persistencia local para obtener los datos principales de esta pantalla.
 */
 async function pintarTablaUsuarios() {
   const usuarios = await cargarUsuariosBackend();
 
-  /*
-    Si no hay usuarios, metemos una única fila
-    indicando que la tabla está vacía.
-  */
   if (usuarios.length === 0) {
     tablaUsuariosBody.innerHTML = `
       <tr class="fila-vacia">
@@ -164,32 +157,12 @@ async function pintarTablaUsuarios() {
     return;
   }
 
-  /*
-    Si sí hay usuarios, vaciamos la tabla antes de repintarla
-    para evitar duplicados.
-  */
   tablaUsuariosBody.innerHTML = "";
 
-  /*
-    Recorremos el array de usuarios
-    y creamos una fila por cada uno.
-  */
   usuarios.forEach((usuario) => {
     const fila = document.createElement("tr");
-
-    /*
-      Según el rol del usuario,
-      obtenemos una clase CSS para el badge.
-    */
     const claseRol = obtenerClaseBadgeRol(usuario.rol);
 
-    /*
-      Construimos el HTML de la fila.
-
-      Mejora aplicada:
-      en la columna de acción usamos una X compacta en rojo,
-      así evitamos que el botón se corte y el diseño queda más limpio.
-    */
     fila.innerHTML = `
       <td>${usuario.id}</td>
       <td>${usuario.nombre} ${usuario.apellidos}</td>
@@ -207,34 +180,19 @@ async function pintarTablaUsuarios() {
       </td>
     `;
 
-    /*
-      Buscamos el botón eliminar que acabamos de crear dentro de la fila.
-    */
     const botonEliminar = fila.querySelector("button");
 
-    /*
-      Cuando el usuario pulse ese botón,
-      se ejecutará la función que borra ese usuario por su email.
-
-      También pasamos el nombre completo para que el mensaje
-      de confirmación sea más claro.
-    */
     botonEliminar.addEventListener("click", () =>
       gestionarBorradoUsuario(usuario.email, `${usuario.nombre} ${usuario.apellidos}`)
     );
 
-    /*
-      Finalmente añadimos la fila al cuerpo de la tabla.
-    */
     tablaUsuariosBody.appendChild(fila);
   });
 }
 
 /*
-  Esta función recoge los valores escritos en el formulario
-  y los devuelve en un objeto.
-
-  Eso luego se pasa a crearUsuario(...).
+  Recoge los valores escritos en el formulario y los prepara
+  para enviarlos a la mutation crearUsuario.
 */
 function obtenerDatosFormulario() {
   return {
@@ -247,72 +205,44 @@ function obtenerDatosFormulario() {
 }
 
 /*
-  Esta función se ejecuta cuando se envía el formulario
-  para crear un nuevo usuario.
+  Gestiona el alta de un usuario nuevo.
+
+  La operación se envía al backend mediante GraphQL.
+  Como crearUsuario está protegida en el backend, se exige un token JWT
+  de administrador antes de enviar la mutation.
 */
 async function gestionarAltaUsuario(evento) {
-  /*
-    Evitamos el comportamiento por defecto del formulario,
-    que sería recargar la página.
-  */
   evento.preventDefault();
 
   try {
-    /*
-      Leemos todos los datos del formulario.
-    */
     const datosUsuario = obtenerDatosFormulario();
-
-    /*
-      Creamos el usuario usando la función del módulo almacenaje.js.
-      Esa función también valida los datos y guarda en localStorage.
-    */
     const usuario = await crearUsuarioBackend(datosUsuario);
 
-    /*
-      Después de crear el usuario:
-      - repintamos la tabla
-      - repintamos la navbar
-      - vaciamos el formulario
-    */
     await pintarTablaUsuarios();
     pintarUsuarioEnNavbar();
     formUsuario.reset();
 
-    /*
-      Mostramos mensaje de éxito.
-    */
     mostrarAlerta(
       mensajeUsuario,
       `Usuario ${usuario.nombre} ${usuario.apellidos} creado correctamente en el backend.`,
       "success"
     );
   } catch (error) {
-    /*
-      Si algo falla (campos vacíos, email duplicado, etc.),
-      mostramos el mensaje de error.
-    */
     mostrarAlerta(mensajeUsuario, error.message, "danger");
   }
 }
 
 /*
-  Esta función elimina un usuario usando su email.
+  Elimina un usuario usando su email.
 
-  Mejoras funcionales aplicadas:
-  - antes de borrar, se pide confirmación
-  - si el usuario a eliminar es el que tiene la sesión activa,
-    se avisa de que la sesión se cerrará automáticamente
+  La operación se ejecuta mediante GraphQL y requiere token JWT de administrador.
+  Si el usuario eliminado es el que tiene la sesión activa, se borra también
+  la sesión local y se redirige al login para evitar una sesión inconsistente.
 */
 async function gestionarBorradoUsuario(email, nombreCompleto) {
   const usuarioActivo = obtenerUsuarioAutenticado();
   const esUsuarioActivo = usuarioActivo && usuarioActivo.email === email;
 
-  /*
-    Construimos un mensaje distinto según el caso:
-    - borrado normal
-    - borrado del usuario que tiene la sesión activa
-  */
   const mensajeConfirmacion = esUsuarioActivo
     ? `¿Seguro que quieres eliminar al usuario "${nombreCompleto}"?\n\nEste es el usuario que tiene la sesión activa ahora mismo, así que al borrarlo también se cerrará la sesión.`
     : `¿Seguro que quieres eliminar al usuario "${nombreCompleto}"?`;
@@ -325,7 +255,7 @@ async function gestionarBorradoUsuario(email, nombreCompleto) {
   }
 
   try {
-        await eliminarUsuarioBackend(email);
+    await eliminarUsuarioBackend(email);
 
     if (esUsuarioActivo) {
       borrarToken();
@@ -360,7 +290,6 @@ async function gestionarBorradoUsuario(email, nombreCompleto) {
 }
 
 /*
-  Cuando el DOM ya está cargado,
-  arrancamos toda la lógica de la página de usuarios.
+  Cuando el DOM ya está cargado, arrancamos la lógica de la página.
 */
 window.addEventListener("DOMContentLoaded", inicializarPaginaUsuarios);

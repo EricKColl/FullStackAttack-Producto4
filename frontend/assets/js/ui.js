@@ -63,9 +63,11 @@ export function pintarUsuarioEnNavbar() {
     return;
   }
 
+  
   /*
-    Obtenemos el usuario activo desde almacenaje.js
-  */
+  Obtenemos el usuario activo desde la sesión centralizada de api.js.
+*/
+  
   const usuarioActivo = obtenerUsuarioAutenticado();
 
   /*

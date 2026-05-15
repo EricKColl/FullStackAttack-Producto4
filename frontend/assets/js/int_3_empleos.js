@@ -1,12 +1,12 @@
 import {
   graphqlRequest,
-  obtenerTokenGuardado,
+  obtenerTokenAdminObligatorio,
   obtenerUsuarioAutenticado
 } from "./api.js";
 import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
 
 /*
-  Aquí guardamos referencias a elementos del HTML.
+  Referencias a elementos del HTML de la pantalla de publicaciones.
 */
 const formPublicacion = document.getElementById("form-publicacion");
 const tipoPublicacion = document.getElementById("tipo-publicacion");
@@ -64,10 +64,10 @@ const ELIMINAR_PUBLICACION = `
 `;
 
 /*
-  Temporizador para evitar redibujar demasiadas veces seguidas el gráfico
-  cuando cambia el tamaño de la ventana.
+  Temporizadores para evitar repintados excesivos.
 */
 let resizeTimeoutId = null;
+let refrescoPublicacionesTimeoutId = null;
 let socketPublicaciones = null;
 
 async function cargarPublicacionesBackend() {
@@ -76,7 +76,8 @@ async function cargarPublicacionesBackend() {
 }
 
 async function crearPublicacionBackend(datosPublicacion) {
-  const token = obtenerTokenGuardado();
+  const token = obtenerTokenAdminObligatorio();
+
   const data = await graphqlRequest(
     CREAR_PUBLICACION,
     { datos: datosPublicacion },
@@ -87,7 +88,8 @@ async function crearPublicacionBackend(datosPublicacion) {
 }
 
 async function eliminarPublicacionBackend(idPublicacion) {
-  const token = obtenerTokenGuardado();
+  const token = obtenerTokenAdminObligatorio();
+
   const data = await graphqlRequest(
     ELIMINAR_PUBLICACION,
     { id: String(idPublicacion) },
@@ -98,15 +100,20 @@ async function eliminarPublicacionBackend(idPublicacion) {
 }
 
 /*
-  Esta función se ejecuta al cargar la página.
+  Función principal de arranque de la página de ofertas y demandas.
 */
 async function inicializarPaginaPublicaciones() {
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
   completarDatosSugeridos();
   configurarSocketPublicaciones();
-  await pintarTablaPublicaciones();
-  await pintarGraficoCanvas();
+
+  try {
+    await pintarTablaPublicaciones();
+    await pintarGraficoCanvas();
+  } catch (error) {
+    mostrarAlerta(mensajePublicacion, error.message, "danger", 0);
+  }
 
   formPublicacion.addEventListener("submit", gestionarAltaPublicacion);
 
@@ -121,6 +128,33 @@ async function inicializarPaginaPublicaciones() {
   });
 }
 
+/*
+  Programa un repintado de tabla y gráfico.
+
+  Se usa con Socket.io para evitar que varios eventos seguidos provoquen
+  repintados duplicados o parpadeos innecesarios.
+*/
+function programarRepintadoPublicaciones() {
+  if (refrescoPublicacionesTimeoutId) {
+    window.clearTimeout(refrescoPublicacionesTimeoutId);
+  }
+
+  refrescoPublicacionesTimeoutId = window.setTimeout(async () => {
+    try {
+      await pintarTablaPublicaciones();
+      await pintarGraficoCanvas();
+    } catch (error) {
+      mostrarAlerta(mensajePublicacion, error.message, "danger");
+    }
+  }, 120);
+}
+
+/*
+  Configura Socket.io para mantener esta pantalla sincronizada con el backend.
+
+  Cuando otra pestaña crea o elimina publicaciones, esta vista actualiza
+  automáticamente la tabla y el gráfico Canvas.
+*/
 function configurarSocketPublicaciones() {
   if (typeof window.io !== "function") {
     return;
@@ -132,14 +166,11 @@ function configurarSocketPublicaciones() {
 
   socketPublicaciones = window.io("http://localhost:4000");
 
-  socketPublicaciones.on("publicaciones:actualizadas", async () => {
-    await pintarTablaPublicaciones();
-    await pintarGraficoCanvas();
-  });
+  socketPublicaciones.on("publicaciones:actualizadas", programarRepintadoPublicaciones);
 }
 
 /*
-  Esta función rellena automáticamente algunos campos del formulario.
+  Rellena automáticamente algunos campos del formulario.
 */
 function completarDatosSugeridos() {
   fechaPublicacion.value = new Date().toISOString().split("T")[0];
@@ -152,7 +183,7 @@ function completarDatosSugeridos() {
 }
 
 /*
-  Esta función recoge todos los datos escritos en el formulario.
+  Recoge los datos del formulario para enviarlos al backend.
 */
 function obtenerDatosFormulario() {
   return {
@@ -168,7 +199,7 @@ function obtenerDatosFormulario() {
 }
 
 /*
-  Esta función pinta la tabla HTML con todas las publicaciones.
+  Pinta la tabla HTML con las publicaciones recibidas desde GraphQL.
 */
 async function pintarTablaPublicaciones() {
   const publicaciones = await cargarPublicacionesBackend();
@@ -212,7 +243,10 @@ async function pintarTablaPublicaciones() {
 }
 
 /*
-  Esta función se ejecuta cuando se envía el formulario.
+  Gestiona el alta de una publicación nueva.
+
+  La operación se envía al backend mediante GraphQL y requiere token JWT
+  de administrador porque crearPublicacion está protegida en el backend.
 */
 async function gestionarAltaPublicacion(evento) {
   evento.preventDefault();
@@ -235,7 +269,9 @@ async function gestionarAltaPublicacion(evento) {
 }
 
 /*
-  Esta función elimina una publicación por su id.
+  Elimina una publicación por su id.
+
+  La operación se ejecuta mediante GraphQL y requiere token JWT de administrador.
 */
 async function gestionarBorradoPublicacion(idPublicacion, tituloPublicacion) {
   const confirmarBorrado = window.confirm(
@@ -323,8 +359,7 @@ function actualizarEstadoGrafico(totalOfertas, totalDemandas) {
 }
 
 /*
-  Esta función dibuja un gráfico más completo, mejor distribuido
-  y visualmente más equilibrado.
+  Dibuja el gráfico Canvas con datos reales obtenidos desde el backend.
 */
 async function pintarGraficoCanvas() {
   if (!canvasGrafico || !canvasGrafico.getContext) {

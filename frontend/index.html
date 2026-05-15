@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Título mostrado en la pestaña del navegador -->
-  <title>JobConnect | Plataforma de empleo</title>
+  <title>JobConnect | Plataforma FullStack de empleo</title>
 
   <!-- Bootstrap 5 para diseño responsive y componentes visuales -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -22,7 +22,7 @@
        BARRA DE NAVEGACIÓN
        =========================
        La marca lleva a la portada principal.
-       El resto de enlaces mantiene el acceso directo a las páginas exigidas.
+       El resto de enlaces mantiene el acceso directo a los módulos principales.
   -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
@@ -57,15 +57,15 @@
   <main class="container py-4">
     <!-- Hero principal de la portada -->
     <section class="hero-home text-center">
-      <span class="hero-badge">Plataforma de empleo digital · Producto 2 · HTML5 + Persistencia local</span>
+      <span class="hero-badge">Plataforma de empleo digital · Producto 4 · FullStack JavaScript</span>
       <h1 class="hero-title">
         Conecta talento y oportunidades con una experiencia
-        <span class="hero-highlight">más visual, más ágil y más profesional</span>
+        <span class="hero-highlight">integrada, dinámica y en tiempo real</span>
       </h1>
       <p class="hero-description">
-        JobConnect es una aplicación web orientada a la gestión moderna de ofertas y demandas laborales.
-        Centraliza el acceso de usuarios, el registro de publicaciones, la persistencia local del sistema y la
-        organización visual de candidaturas en un entorno claro, innovador y preparado para evolucionar.
+        JobConnect es una aplicación web FullStack orientada a la gestión moderna de ofertas y demandas laborales.
+        Integra un frontend modular con un backend real basado en Node.js, Express, Apollo GraphQL, MongoDB,
+        Mongoose, JWT y Socket.io para ofrecer una experiencia más completa, verificable y conectada.
       </p>
 
       <div class="hero-actions">
@@ -76,30 +76,31 @@
       <div class="hero-metrics">
         <div class="hero-metric">
           <strong>4</strong>
-          <span>módulos funcionales conectados entre sí</span>
+          <span>módulos funcionales conectados al backend</span>
         </div>
         <div class="hero-metric">
-          <strong>HTML5</strong>
-          <span>Canvas, Drag &amp; Drop, WebStorage e IndexedDB</span>
+          <strong>GraphQL</strong>
+          <span>consultas y mutaciones reales mediante Fetch</span>
         </div>
         <div class="hero-metric">
-          <strong>UX</strong>
-          <span>navegación clara, interacción directa y persistencia local</span>
+          <strong>JWT</strong>
+          <span>sesión de administrador y operaciones protegidas</span>
         </div>
         <div class="hero-metric">
-          <strong>Vanilla JS</strong>
-          <span>arquitectura modular lista para crecer con backend</span>
+          <strong>Socket.io</strong>
+          <span>actualización automática del dashboard sin recargar</span>
         </div>
       </div>
     </section>
 
     <!-- Bloque explicativo principal -->
     <section class="page-intro mb-4">
-      <h2 class="page-heading">Una experiencia profesional pensada para la gestión de empleo</h2>
+      <h2 class="page-heading">Una experiencia profesional pensada para la integración FullStack</h2>
       <p class="page-subtitle">
-        La plataforma permite autenticar usuarios, administrar perfiles, crear publicaciones de empleo y organizar
-        selecciones personalizadas desde un dashboard visual. Todo ello manteniendo una interfaz coherente, un estilo
-        tecnológico de alta legibilidad y una base funcional alineada con los requisitos del proyecto.
+        La plataforma permite autenticar usuarios, administrar perfiles, crear publicaciones de empleo,
+        consultar datos reales desde MongoDB y organizar selecciones personalizadas desde un dashboard visual.
+        Todo ello manteniendo una interfaz coherente, un estilo tecnológico de alta legibilidad y una base funcional
+        alineada con los requisitos del Producto 4.
       </p>
     </section>
 
@@ -110,8 +111,8 @@
           <div class="card-icon">✦</div>
           <h3>Gestión integral de publicaciones</h3>
           <p>
-            Registra ofertas y demandas con información relevante, persistencia en IndexedDB y una presentación clara
-            para su consulta, seguimiento y eliminación.
+            Registra, consulta y elimina ofertas o demandas laborales mediante operaciones GraphQL conectadas al backend
+            real, manteniendo los datos sincronizados con MongoDB y visibles desde las distintas pantallas.
           </p>
         </article>
       </div>
@@ -119,10 +120,10 @@
       <div class="col-12 col-lg-4">
         <article class="feature-card h-100">
           <div class="card-icon">◉</div>
-          <h3>Organización visual del talento</h3>
+          <h3>Dashboard interactivo y sincronizado</h3>
           <p>
-            Selecciona publicaciones de forma intuitiva mediante filtros, doble clic y drag &amp; drop, conservando el
-            estado de trabajo del usuario entre recargas y sesiones locales.
+            Consulta contadores reales, filtra publicaciones y organiza selecciones mediante interacción directa.
+            Los cambios importantes se reflejan automáticamente gracias a la integración con Socket.io.
           </p>
         </article>
       </div>
@@ -130,10 +131,10 @@
       <div class="col-12 col-lg-4">
         <article class="feature-card h-100">
           <div class="card-icon">▣</div>
-          <h3>Diseño moderno y navegación eficiente</h3>
+          <h3>Diseño moderno y arquitectura modular</h3>
           <p>
-            La interfaz está diseñada para transmitir profesionalidad, innovación y legibilidad, favoreciendo una
-            experiencia más agradable, clara y robusta en el uso diario.
+            La interfaz mantiene una estética profesional y tecnológica, mientras que la lógica JavaScript se organiza
+            en módulos reutilizables para facilitar el mantenimiento, las pruebas y la evolución del producto.
           </p>
         </article>
       </div>
@@ -146,15 +147,16 @@
           <div class="section-heading-block">
             <h2 class="section-title">Cómo funciona la plataforma</h2>
             <p class="section-subtitle">
-              Un recorrido simple y lógico que conecta autenticación, gestión de datos y selección visual.
+              Un recorrido simple y lógico que conecta autenticación, gestión de datos, dashboard y actualización en
+              tiempo real.
             </p>
           </div>
 
           <div class="d-grid gap-3">
-            <div class="info-chip">1 · Accede con tus credenciales y consulta el estado de la sesión</div>
-            <div class="info-chip">2 · Da de alta usuarios y mantén actualizada la información registrada</div>
-            <div class="info-chip">3 · Crea ofertas o demandas y visualiza su distribución en el gráfico</div>
-            <div class="info-chip">4 · Organiza tu selección de publicaciones en el dashboard interactivo</div>
+            <div class="info-chip">1 · Accede con credenciales y valida la sesión mediante JWT</div>
+            <div class="info-chip">2 · Consulta usuarios y publicaciones obtenidos desde GraphQL</div>
+            <div class="info-chip">3 · Crea o elimina datos mediante mutaciones protegidas</div>
+            <div class="info-chip">4 · Visualiza cambios en el dashboard sin recargar gracias a Socket.io</div>
           </div>
         </section>
       </div>
@@ -164,34 +166,42 @@
           <div class="section-heading-block">
             <h2 class="section-title">Tecnología aplicada al producto</h2>
             <p class="section-subtitle">
-              El proyecto aprovecha APIs nativas del navegador para reforzar la interacción, la persistencia y la
-              modularidad del frontend.
+              El proyecto combina tecnologías frontend y backend para construir una solución FullStack JavaScript
+              integrada, mantenible y preparada para la entrega final.
             </p>
           </div>
 
           <div class="row g-3">
             <div class="col-12 col-md-6">
               <article class="section-glass p-3 h-100">
-                <h3 class="h5 mb-2">WebStorage</h3>
-                <p class="mb-0 text-muted">Mantiene la sesión activa y almacena la información de usuarios con acceso rápido y local.</p>
+                <h3 class="h5 mb-2">GraphQL + Fetch</h3>
+                <p class="mb-0 text-muted">
+                  Comunicación entre frontend y backend mediante consultas y mutaciones centralizadas en una capa API.
+                </p>
               </article>
             </div>
             <div class="col-12 col-md-6">
               <article class="section-glass p-3 h-100">
-                <h3 class="h5 mb-2">IndexedDB</h3>
-                <p class="mb-0 text-muted">Persistencia estructurada para publicaciones y selección de elementos del dashboard.</p>
+                <h3 class="h5 mb-2">JWT y roles</h3>
+                <p class="mb-0 text-muted">
+                  Gestión de sesión y protección de operaciones sensibles mediante token de administrador.
+                </p>
               </article>
             </div>
             <div class="col-12 col-md-6">
               <article class="section-glass p-3 h-100">
-                <h3 class="h5 mb-2">Canvas</h3>
-                <p class="mb-0 text-muted">Representación visual del volumen de ofertas y demandas con dibujo nativo en el navegador.</p>
+                <h3 class="h5 mb-2">MongoDB + Mongoose</h3>
+                <p class="mb-0 text-muted">
+                  Persistencia real en base de datos y modelos ODM con validaciones, índices y estructura profesional.
+                </p>
               </article>
             </div>
             <div class="col-12 col-md-6">
               <article class="section-glass p-3 h-100">
-                <h3 class="h5 mb-2">Drag &amp; Drop</h3>
-                <p class="mb-0 text-muted">Selección interactiva de publicaciones para mejorar la experiencia y la productividad del usuario.</p>
+                <h3 class="h5 mb-2">Socket.io + Canvas</h3>
+                <p class="mb-0 text-muted">
+                  Actualización en tiempo real y representación visual de publicaciones mediante gráfico Canvas.
+                </p>
               </article>
             </div>
           </div>
@@ -205,7 +215,7 @@
         <h2 class="section-title">Empieza a trabajar con JobConnect</h2>
         <p class="section-subtitle">
           Accede a los distintos módulos de la aplicación y explora una solución web diseñada para gestionar talento,
-          oportunidades y procesos de selección con mayor claridad, control y valor visual.
+          oportunidades y procesos de selección con mayor claridad, control técnico y valor visual.
         </p>
       </div>
 
@@ -219,7 +229,7 @@
 
   <footer>
     <div class="container text-center">
-      FULL STACK ATTACK · JobConnect · Producto 2
+      FULL STACK ATTACK · JobConnect · Producto 4
     </div>
   </footer>
 
@@ -230,11 +240,9 @@
 
   <!-- Módulo UI para pintar el usuario activo y gestionar el cierre de sesión -->
   <script type="module">
-    import { inicializarAlmacenamiento } from "./assets/js/almacenaje.js";
     import { configurarBotonCerrarSesion, pintarUsuarioEnNavbar } from "./assets/js/ui.js";
 
-    window.addEventListener("DOMContentLoaded", async () => {
-      await inicializarAlmacenamiento();
+    window.addEventListener("DOMContentLoaded", () => {
       pintarUsuarioEnNavbar();
       configurarBotonCerrarSesion();
     });
