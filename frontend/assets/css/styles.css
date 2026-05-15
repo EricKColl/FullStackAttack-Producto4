@@ -2,7 +2,7 @@
 
 /* =========================================================
    JobConnect - FULL STACK ATTACK
-   Producto 2 - Estilos personalizados (Bootstrap + mejoras UX/UI)
+   Producto 4 - Estilos personalizados (Bootstrap + mejoras UX/UI)
    ========================================================= */
 
 /* ---------- Variables visuales ---------- */
@@ -545,7 +545,8 @@ th {
 }
 
 .badge-rol-candidato,
-.badge-rol-empresa {
+.badge-rol-empresa,
+.badge-rol-admin {
   min-width: 110px;
   display: inline-flex;
   align-items: center;
@@ -567,6 +568,13 @@ th {
   border: 1px solid rgba(255, 215, 114, 0.32);
   color: #fff4c9;
   box-shadow: 0 6px 16px rgba(255, 215, 114, 0.14);
+}
+
+.badge-rol-admin {
+  background: linear-gradient(135deg, rgba(88, 231, 255, 0.30), rgba(36, 152, 255, 0.24));
+  border: 1px solid rgba(88, 231, 255, 0.34);
+  color: #eaf8ff;
+  box-shadow: 0 0 18px rgba(88, 231, 255, 0.12);
 }
 
 /* ---------- Botones ---------- */

@@ -233,7 +233,17 @@ export function limpiarAlerta(elemento) {
   Esto permite que los roles se vean con estilos visuales diferentes.
 */
 export function obtenerClaseBadgeRol(rol) {
-  return rol === "empresa" ? "badge-rol-empresa" : "badge-rol-candidato";
+  const rolNormalizado = String(rol || "").toLowerCase();
+
+  if (rolNormalizado === "admin") {
+    return "badge-rol-admin";
+  }
+
+  if (rolNormalizado === "empresa") {
+    return "badge-rol-empresa";
+  }
+
+  return "badge-rol-candidato";
 }
 
 /*
