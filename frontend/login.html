@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Título mostrado en la pestaña del navegador -->
-  <title>JobConnect | Login</title>
+  <title>JobConnect | Inicio de sesión</title>
 
   <!-- Bootstrap 5 para diseño responsive y componentes visuales -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -45,60 +45,88 @@
     </div>
   </nav>
 
-  <main class="container py-4">
-    <section class="page-intro">
-      <h1 class="page-heading">Acceso a la aplicación</h1>
-      <p class="page-subtitle mb-0">
-        Inicia sesión con tus credenciales, consulta el estado actual del acceso y gestiona la sesión activa sin salir
-        de esta pantalla.
-      </p>
+  <script>
+    (function () {
+      const usuarioActivo = document.getElementById("usuarioActivo");
+      const botonCerrarSesion = document.getElementById("btn-cerrar-sesion");
+
+      if (!usuarioActivo || !botonCerrarSesion) {
+        return;
+      }
+
+      try {
+        const textoUsuario = localStorage.getItem("jobconnect_usuario");
+        const usuario = textoUsuario ? JSON.parse(textoUsuario) : null;
+
+        if (usuario && usuario.nombre && usuario.apellidos) {
+          const texto = "Usuario activo: " + usuario.nombre + " " + usuario.apellidos;
+
+          usuarioActivo.textContent = texto;
+          usuarioActivo.title = texto;
+
+          botonCerrarSesion.classList.remove("d-none");
+          botonCerrarSesion.classList.remove("session-button-hidden");
+          botonCerrarSesion.setAttribute("aria-hidden", "false");
+          botonCerrarSesion.tabIndex = 0;
+        } else {
+          usuarioActivo.textContent = "Usuario activo: -no login-";
+          usuarioActivo.title = "Usuario activo: -no login-";
+
+          botonCerrarSesion.classList.remove("d-none");
+          botonCerrarSesion.classList.add("session-button-hidden");
+          botonCerrarSesion.setAttribute("aria-hidden", "true");
+          botonCerrarSesion.tabIndex = -1;
+        }
+      } catch (error) {
+        usuarioActivo.textContent = "Usuario activo: -no login-";
+        usuarioActivo.title = "Usuario activo: -no login-";
+
+        botonCerrarSesion.classList.remove("d-none");
+        botonCerrarSesion.classList.add("session-button-hidden");
+        botonCerrarSesion.setAttribute("aria-hidden", "true");
+        botonCerrarSesion.tabIndex = -1;
+      }
+    })();
+  </script>
+
+  <main class="container py-4 d-flex align-items-center justify-content-center" style="min-height: calc(100vh - 150px);">
+    <section class="seccion-formulario login-panel" style="width: min(100%, 520px);">
+      <div class="section-heading-block">
+        <h1 class="section-title">Inicio de sesión</h1>
+      </div>
+
+      <form id="form-login" novalidate>
+        <div class="mb-3">
+          <label for="email-login" class="form-label">Correo electrónico</label>
+          <input
+            type="email"
+            class="form-control"
+            id="email-login"
+            placeholder="usuario@correo.com"
+            autocomplete="email"
+            required
+          />
+        </div>
+
+        <div class="mb-3">
+          <label for="password-login" class="form-label">Contraseña</label>
+          <input
+            type="password"
+            class="form-control"
+            id="password-login"
+            placeholder="Introduce tu contraseña"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary">Entrar</button>
+        </div>
+      </form>
+
+      <div id="mensaje-login" class="mt-3"></div>
     </section>
-
-    <div class="row justify-content-center g-4">
-      <div class="col-12 col-lg-7">
-        <div class="seccion-formulario h-100 login-panel">
-          <div class="section-heading-block">
-            <h2 class="section-title">Validación de acceso</h2>
-            <p class="section-subtitle">
-              Introduce el correo electrónico y la contraseña registrados en la aplicación para autenticar el acceso.
-            </p>
-          </div>
-
-          <form id="form-login" novalidate>
-            <div class="mb-3">
-              <label for="email-login" class="form-label">Correo electrónico</label>
-              <input type="email" class="form-control" id="email-login" placeholder="ejemplo@correo.com" required />
-            </div>
-
-            <div class="mb-3">
-              <label for="password-login" class="form-label">Contraseña</label>
-              <input type="password" class="form-control" id="password-login" placeholder="********" required />
-            </div>
-
-            <div class="d-grid">
-              <button type="submit" class="btn btn-primary">Iniciar sesión</button>
-            </div>
-          </form>
-
-          <div id="mensaje-login" class="mt-3"></div>
-        </div>
-      </div>
-
-      <div class="col-12 col-lg-5">
-        <div class="section-card h-100 session-panel p-4">
-          <div class="section-heading-block mb-3">
-            <h2 class="section-title">Estado de la sesión</h2>
-            <p class="section-subtitle">
-              Revisa qué usuario se encuentra autenticado y mantén el control sobre la sesión activa en cada momento.
-            </p>
-          </div>
-
-          <p id="usuario-activo-pagina" class="mb-0 text-center">
-            Comprobando el usuario activo...
-          </p>
-        </div>
-      </div>
-    </div>
   </main>
 
   <footer>

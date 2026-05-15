@@ -1,5 +1,3 @@
-import { inicializarAlmacenamiento } from "./almacenaje.js";
-
 import {
   borrarToken,
   graphqlRequest,
@@ -7,7 +5,6 @@ import {
   guardarUsuarioAutenticado,
   obtenerUsuarioAutenticado
 } from "./api.js";
-
 import { configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
 
 const LOGIN_ADMIN = `
@@ -38,98 +35,63 @@ const LOGIN_USUARIO = `
 `;
 
 /*
-  Referencias a los elementos HTML de la página de login.
-
-  Estos elementos se usan para:
-  - leer el email y la contraseña escritos por el usuario
-  - detectar el envío del formulario
-  - mostrar mensajes de éxito o error
-  - enseñar en la propia página qué usuario está activo
+  Referencias principales del formulario de login.
 */
 const formLogin = document.getElementById("form-login");
 const inputEmail = document.getElementById("email-login");
 const inputPassword = document.getElementById("password-login");
 const mensajeLogin = document.getElementById("mensaje-login");
-const usuarioActivoPagina = document.getElementById("usuario-activo-pagina");
 
 /*
-  Tiempo de espera antes de redirigir al dashboard
-  cuando el login ha sido correcto.
+  Tiempo de espera antes de redirigir al dashboard.
 */
-const TIEMPO_REDIRECCION_LOGIN = 1200;
+const TIEMPO_REDIRECCION_LOGIN = 900;
 
 /*
-  Función principal de arranque de la página login.
-
-  Mejora aplicada:
-  si ya existe una sesión iniciada, la página se puede seguir visitando
-  sin redirigir automáticamente al dashboard.
+  Función principal de arranque.
 */
-async function inicializarPaginaLogin() {
-  await inicializarAlmacenamiento();
+function inicializarPaginaLogin() {
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
-  mostrarUsuarioActivoEnPagina();
-  mostrarAvisoSesionActivaSiCorresponde();
+
+  const usuarioActivo = obtenerUsuarioAutenticado();
+
+  if (usuarioActivo) {
+    mostrarAlerta(
+      mensajeLogin,
+      `Sesión activa: ${usuarioActivo.nombre} ${usuarioActivo.apellidos}.`,
+      "info",
+      0
+    );
+  }
 
   formLogin.addEventListener("submit", gestionarLogin);
 }
 
 /*
-  Si ya había una sesión activa al entrar en esta pantalla,
-  mostramos solo un aviso informativo y dejamos que el usuario
-  decida qué hacer.
-*/
-function mostrarAvisoSesionActivaSiCorresponde() {
-  const usuarioActivo = obtenerUsuarioAutenticado();
-
-  if (!usuarioActivo) {
-    return;
-  }
-
-  mostrarAlerta(
-    mensajeLogin,
-    `Ya hay una sesión activa con ${usuarioActivo.nombre} ${usuarioActivo.apellidos}. Puedes mantenerla abierta, cerrarla desde la parte superior o iniciar otra sesión si lo necesitas.`,
-    "info",
-    0
-  );
-}
-
-/*
-  Muestra dentro de la página si hay un usuario activo o no.
-*/
-function mostrarUsuarioActivoEnPagina() {
-  const usuarioActivo = obtenerUsuarioAutenticado();
-
-  if (!usuarioActivo) {
-    usuarioActivoPagina.textContent = "Ahora mismo no hay ningún usuario logueado.";
-    return;
-  }
-
-  usuarioActivoPagina.textContent = `Ahora mismo está logueado ${usuarioActivo.nombre} ${usuarioActivo.apellidos} (${usuarioActivo.email}).`;
-}
-
-/*
-  Valida y normaliza los datos introducidos en el formulario.
+  Valida y normaliza los datos introducidos.
 */
 function validarFormulario() {
   const email = inputEmail.value.trim().toLowerCase();
   const password = inputPassword.value.trim();
 
   if (!email || !password) {
-    throw new Error("Debes completar el correo y la contraseña.");
+    throw new Error("Debes completar el correo electrónico y la contraseña.");
   }
 
   return { email, password };
 }
 
 /*
-  Redirige al usuario al dashboard principal.
+  Redirige al dashboard.
 */
 function redirigirAlDashboard() {
   window.location.href = "dashboard.html";
 }
 
+/*
+  Login de administrador con JWT.
+*/
 async function loginAdmin(email, password) {
   const data = await graphqlRequest(LOGIN_ADMIN, { email, password });
 
@@ -139,24 +101,22 @@ async function loginAdmin(email, password) {
   return data.loginAdmin.usuario;
 }
 
+/*
+  Login de usuario normal.
+  Se elimina cualquier token previo para evitar permisos antiguos.
+*/
 async function loginUsuarioNormal(email, password) {
+  borrarToken();
+
   const data = await graphqlRequest(LOGIN_USUARIO, { email, password });
 
-  /*
-    Si el acceso correcto no es de administrador, eliminamos cualquier token
-    JWT anterior que pudiera quedar guardado de una sesión admin previa.
-
-    Así evitamos que la interfaz muestre un usuario normal mientras el
-    navegador conserva permisos de administrador en localStorage.
-  */
-  borrarToken();
   guardarUsuarioAutenticado(data.loguearUsuario);
 
   return data.loguearUsuario;
 }
 
 /*
-  Gestiona el envío del formulario de login.
+  Gestiona el envío del formulario.
 */
 async function gestionarLogin(evento) {
   evento.preventDefault();
@@ -172,10 +132,10 @@ async function gestionarLogin(evento) {
     }
 
     pintarUsuarioEnNavbar();
-    mostrarUsuarioActivoEnPagina();
+
     mostrarAlerta(
       mensajeLogin,
-      `Inicio de sesión correcto. Bienvenido/a, ${usuario.nombre}. Redirigiendo al dashboard...`,
+      `Bienvenido/a, ${usuario.nombre}. Redirigiendo...`,
       "success",
       TIEMPO_REDIRECCION_LOGIN
     );
@@ -187,8 +147,4 @@ async function gestionarLogin(evento) {
   }
 }
 
-/*
-  Cuando el DOM está completamente cargado,
-  arrancamos toda la lógica de la página de login.
-*/
 window.addEventListener("DOMContentLoaded", inicializarPaginaLogin);

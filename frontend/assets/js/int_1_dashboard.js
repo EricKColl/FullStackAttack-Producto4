@@ -66,15 +66,12 @@ const QUITAR_SELECCIONADA = `
 `;
 
 /*
-  Clave usada en localStorage para recordar el filtro visual activo.
-
-  En Producto 4, localStorage no se utiliza como persistencia principal
-  de publicaciones. Solo se conserva aquí una preferencia de interfaz.
+  Clave usada para recordar el filtro del dashboard.
 */
 const CLAVE_FILTRO_DASHBOARD = "jobconnect_dashboard_filtro";
 
 /*
-  Referencias a elementos del HTML que muestran el resumen superior.
+  Elementos de resumen.
 */
 const totalOfertasElemento = document.getElementById("total-ofertas");
 const totalDemandasElemento = document.getElementById("total-demandas");
@@ -82,32 +79,29 @@ const totalUsuariosElemento = document.getElementById("total-usuarios");
 const totalSeleccionadasElemento = document.getElementById("total-seleccionadas");
 
 /*
-  Contenedores internos donde se pintan las tarjetas del dashboard.
+  Contenedores principales.
 */
 const contenedorDisponibles = document.getElementById("contenedor-publicaciones");
 const contenedorSeleccionadas = document.getElementById("contenedor-seleccionadas");
 
-/*
-  closest(".drop-zone") busca el ancestro más cercano con clase .drop-zone.
-  Esto permite que el drag and drop funcione sobre toda la zona visual.
-*/
 const zonaDisponibles = contenedorDisponibles.closest(".drop-zone");
 const zonaSeleccionadas = contenedorSeleccionadas.closest(".drop-zone");
 
 /*
-  Elemento donde mostraremos mensajes de éxito o error.
+  Elementos auxiliares.
 */
 const mensajeDashboard = document.getElementById("mensaje-dashboard");
-
-/*
-  Botones de filtrado visual.
-*/
+const estadoDashboard = document.getElementById("estado-dashboard");
+const contadorDisponibles = document.getElementById("contador-disponibles");
+const contadorSeleccionadas = document.getElementById("contador-seleccionadas");
 const botonesFiltro = document.querySelectorAll("[data-filtro]");
 
 /*
-  Estado visual del dashboard.
+  Estado local.
 */
 let filtroActual = "todas";
+let publicacionesDisponiblesCache = [];
+let publicacionesSeleccionadasCache = [];
 let socketDashboard = null;
 let refrescoDashboardTimeoutId = null;
 
@@ -166,11 +160,12 @@ async function inicializarDashboard() {
     await repintarDashboard();
   } catch (error) {
     mostrarAlerta(mensajeDashboard, error.message, "danger", 0);
+    actualizarEstadoDashboard("No se pudo cargar la información del dashboard.");
   }
 }
 
 /*
-  Recupera desde localStorage el último filtro usado por el usuario.
+  Recupera el filtro guardado.
 */
 function recuperarFiltroGuardado() {
   const filtroGuardado = localStorage.getItem(CLAVE_FILTRO_DASHBOARD);
@@ -185,17 +180,25 @@ function recuperarFiltroGuardado() {
 }
 
 /*
-  Guarda en localStorage el filtro actual del dashboard.
+  Guarda el filtro actual.
 */
 function guardarFiltroActual() {
   localStorage.setItem(CLAVE_FILTRO_DASHBOARD, filtroActual);
 }
 
 /*
-  Programa un repintado del dashboard con una pequeña espera.
+  Actualiza el texto de estado general.
+*/
+function actualizarEstadoDashboard(texto) {
+  if (!estadoDashboard) {
+    return;
+  }
 
-  Esto evita repintados duplicados cuando el backend emite varios eventos
-  seguidos, por ejemplo al crear o eliminar una publicación.
+  estadoDashboard.textContent = texto;
+}
+
+/*
+  Programa un repintado evitando llamadas duplicadas por eventos Socket.io seguidos.
 */
 function programarRepintadoDashboard() {
   if (refrescoDashboardTimeoutId) {
@@ -212,15 +215,11 @@ function programarRepintadoDashboard() {
 }
 
 /*
-  Configura Socket.io para actualizar el dashboard sin recargar la página.
-
-  El dashboard escucha varios eventos porque sus datos pueden cambiar cuando:
-  - se crea o elimina una publicación;
-  - se añade o quita una publicación seleccionada;
-  - se actualizan los contadores generales.
+  Configura Socket.io para actualizar el dashboard en tiempo real.
 */
 function configurarSocketDashboard() {
   if (typeof window.io !== "function") {
+    actualizarEstadoDashboard("Socket.io no está disponible. El dashboard funcionará con actualización manual.");
     return;
   }
 
@@ -229,6 +228,14 @@ function configurarSocketDashboard() {
   }
 
   socketDashboard = window.io("http://localhost:4000");
+
+  socketDashboard.on("connect", () => {
+    actualizarEstadoDashboard("Dashboard conectado en tiempo real.");
+  });
+
+  socketDashboard.on("disconnect", () => {
+    actualizarEstadoDashboard("Conexión en tiempo real interrumpida. Revisa el backend.");
+  });
 
   socketDashboard.on("dashboard:actualizado", programarRepintadoDashboard);
   socketDashboard.on("publicaciones:actualizadas", programarRepintadoDashboard);
@@ -246,7 +253,7 @@ function configurarFiltros() {
       actualizarEstadoVisualFiltros();
 
       try {
-        await pintarTarjetas();
+        pintarTarjetas();
       } catch (error) {
         mostrarAlerta(mensajeDashboard, error.message, "danger");
       }
@@ -255,7 +262,7 @@ function configurarFiltros() {
 }
 
 /*
-  Cambia el estilo de los botones según cuál está activo.
+  Cambia el estilo de los botones según el filtro activo.
 */
 function actualizarEstadoVisualFiltros() {
   botonesFiltro.forEach((boton) => {
@@ -270,7 +277,7 @@ function actualizarEstadoVisualFiltros() {
 }
 
 /*
-  Configura el comportamiento drag and drop de las dos zonas.
+  Configura drag and drop en ambas columnas.
 */
 function configurarZonasDrop() {
   [zonaDisponibles, zonaSeleccionadas].forEach((zona) => {
@@ -289,7 +296,12 @@ function configurarZonasDrop() {
   zonaDisponibles.addEventListener("drop", async (evento) => {
     evento.preventDefault();
     zonaDisponibles.classList.remove("drop-zone-activa");
+
     const id = evento.dataTransfer.getData("text/plain");
+
+    if (!id) {
+      return;
+    }
 
     try {
       await quitarSeleccionadaBackend(id);
@@ -303,7 +315,12 @@ function configurarZonasDrop() {
   zonaSeleccionadas.addEventListener("drop", async (evento) => {
     evento.preventDefault();
     zonaSeleccionadas.classList.remove("drop-zone-activa");
+
     const id = evento.dataTransfer.getData("text/plain");
+
+    if (!id) {
+      return;
+    }
 
     try {
       await anadirSeleccionadaBackend(id);
@@ -313,6 +330,18 @@ function configurarZonasDrop() {
       mostrarAlerta(mensajeDashboard, error.message, "danger");
     }
   });
+}
+
+/*
+  Normaliza valores para mostrarlos de forma segura.
+*/
+function escaparHTML(valor) {
+  return String(valor ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 /*
@@ -330,10 +359,6 @@ async function moverASeleccionadas(idPublicacion) {
 
 /*
   Devuelve una publicación al bloque de disponibles.
-
-  Esta función se reutiliza en dos acciones:
-  - doble clic sobre una tarjeta seleccionada;
-  - botón de cierre dentro de la tarjeta seleccionada.
 */
 async function moverADisponibles(idPublicacion) {
   try {
@@ -349,17 +374,24 @@ async function moverADisponibles(idPublicacion) {
   Repinta todo el dashboard.
 */
 async function repintarDashboard() {
-  await pintarResumen();
-  await pintarTarjetas();
+  const [resumen, disponibles, seleccionadas] = await Promise.all([
+    cargarResumenDashboard(),
+    cargarPublicacionesDisponibles(),
+    cargarPublicacionesSeleccionadas()
+  ]);
+
+  publicacionesDisponiblesCache = disponibles;
+  publicacionesSeleccionadasCache = seleccionadas;
+
+  pintarResumen(resumen);
+  pintarTarjetas();
+  actualizarEstadoDashboard("Datos sincronizados con el backend y actualizados en tiempo real.");
 }
 
 /*
-  Pide al backend el resumen del dashboard y coloca cada dato
-  en su elemento HTML correspondiente.
+  Pinta los KPIs superiores.
 */
-async function pintarResumen() {
-  const resumen = await cargarResumenDashboard();
-
+function pintarResumen(resumen) {
   totalOfertasElemento.textContent = resumen.totalOfertas;
   totalDemandasElemento.textContent = resumen.totalDemandas;
   totalUsuariosElemento.textContent = resumen.totalUsuarios;
@@ -367,33 +399,85 @@ async function pintarResumen() {
 }
 
 /*
-  Pinta las tarjetas de publicaciones disponibles y seleccionadas.
+  Devuelve las publicaciones disponibles según el filtro activo.
 */
-async function pintarTarjetas() {
-  const publicacionesDisponibles = await cargarPublicacionesDisponibles();
-  const publicacionesSeleccionadas = await cargarPublicacionesSeleccionadas();
-
-  const disponiblesFiltradas = publicacionesDisponibles.filter((publicacion) => {
+function obtenerDisponiblesFiltradas() {
+  return publicacionesDisponiblesCache.filter((publicacion) => {
     if (filtroActual === "todas") {
       return true;
     }
 
     return publicacion.tipo === filtroActual;
   });
+}
+
+/*
+  Actualiza los contadores internos de cada columna.
+*/
+function actualizarContadoresColumnas(disponiblesFiltradas, seleccionadas) {
+  if (contadorDisponibles) {
+    const textoFiltro = filtroActual === "todas"
+      ? "disponibles"
+      : `${filtroActual === "oferta" ? "ofertas" : "demandas"} visibles`;
+
+    contadorDisponibles.textContent = `${disponiblesFiltradas.length} ${textoFiltro}`;
+  }
+
+  if (contadorSeleccionadas) {
+    contadorSeleccionadas.textContent = `${seleccionadas.length} seleccionadas`;
+  }
+}
+
+/*
+  Pinta las tarjetas de ambas zonas.
+*/
+function pintarTarjetas() {
+  const disponiblesFiltradas = obtenerDisponiblesFiltradas();
+
+  actualizarContadoresColumnas(disponiblesFiltradas, publicacionesSeleccionadasCache);
 
   renderizarTarjetas(
     contenedorDisponibles,
     disponiblesFiltradas,
-    "No hay publicaciones disponibles en este bloque.",
+    obtenerTextoVacioDisponibles(),
     "disponibles"
   );
 
   renderizarTarjetas(
     contenedorSeleccionadas,
-    publicacionesSeleccionadas,
-    "Arrastra aquí las publicaciones que quieras guardar.",
+    publicacionesSeleccionadasCache,
+    "Todavía no hay publicaciones seleccionadas. Arrastra aquí una tarjeta o usa doble clic sobre una publicación disponible.",
     "seleccionadas"
   );
+}
+
+/*
+  Texto de estado vacío según el filtro activo.
+*/
+function obtenerTextoVacioDisponibles() {
+  if (filtroActual === "oferta") {
+    return "No hay ofertas disponibles con el filtro actual.";
+  }
+
+  if (filtroActual === "demanda") {
+    return "No hay demandas disponibles con el filtro actual.";
+  }
+
+  return "No hay publicaciones disponibles en este momento.";
+}
+
+/*
+  Renderiza un estado vacío más integrado que una alerta simple.
+*/
+function renderizarEstadoVacio(contenedor, texto) {
+  contenedor.innerHTML = `
+    <div class="col-12">
+      <div class="section-glass p-4 text-center">
+        <h3 class="h5 mb-2">Sin resultados</h3>
+        <p class="text-muted mb-0">${escaparHTML(texto)}</p>
+      </div>
+    </div>
+  `;
 }
 
 /*
@@ -401,11 +485,7 @@ async function pintarTarjetas() {
 */
 function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
   if (publicaciones.length === 0) {
-    contenedor.innerHTML = `
-      <div class="col-12">
-        <div class="alert alert-secondary mb-0">${textoVacio}</div>
-      </div>
-    `;
+    renderizarEstadoVacio(contenedor, textoVacio);
     return;
   }
 
@@ -429,21 +509,34 @@ function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
       : "";
 
     columna.innerHTML = `
-      <article class="card card-publicacion h-100 tarjeta-arrastrable" draggable="true" data-id="${publicacion.id}">
+      <article class="card card-publicacion h-100 tarjeta-arrastrable" draggable="true" data-id="${escaparHTML(publicacion.id)}">
         <div class="card-body position-relative">
           <div class="d-flex justify-content-between align-items-start gap-2 mb-2 flex-wrap tarjeta-cabecera-publicacion">
-            <div class="d-flex align-items-start gap-2 flex-wrap pe-4">
-              <span class="badge ${badgeClase}">${capitalizarTexto(publicacion.tipo)}</span>
-              <small class="text-muted">${publicacion.fecha}</small>
+            <div class="d-flex align-items-center gap-2 flex-wrap pe-4">
+              <span class="badge ${badgeClase}">${escaparHTML(capitalizarTexto(publicacion.tipo))}</span>
+              <small class="text-muted">${escaparHTML(publicacion.fecha)}</small>
             </div>
             ${botonQuitarSeleccion}
           </div>
-          <h3 class="h5">${publicacion.titulo}</h3>
-          <p class="mb-2"><strong>Categoría:</strong> ${publicacion.categoria}</p>
-          <p class="mb-2"><strong>Autor:</strong> ${publicacion.autor}</p>
-          <p class="mb-2"><strong>Ubicación:</strong> ${publicacion.ubicacion}</p>
-          <p class="mb-2"><strong>Contacto:</strong> ${publicacion.emailContacto}</p>
-          <p class="mb-0 text-muted">${publicacion.descripcion}</p>
+
+          <h3 class="h5">${escaparHTML(publicacion.titulo)}</h3>
+
+          <div class="row g-2 mb-2">
+            <div class="col-12 col-md-6">
+              <p class="mb-1"><strong>Categoría:</strong> ${escaparHTML(publicacion.categoria)}</p>
+            </div>
+            <div class="col-12 col-md-6">
+              <p class="mb-1"><strong>Ubicación:</strong> ${escaparHTML(publicacion.ubicacion)}</p>
+            </div>
+            <div class="col-12">
+              <p class="mb-1"><strong>Autor:</strong> ${escaparHTML(publicacion.autor)}</p>
+            </div>
+            <div class="col-12">
+              <p class="mb-1"><strong>Contacto:</strong> ${escaparHTML(publicacion.emailContacto)}</p>
+            </div>
+          </div>
+
+          <p class="mb-0 text-muted">${escaparHTML(publicacion.descripcion)}</p>
         </div>
       </article>
     `;
@@ -486,6 +579,7 @@ function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
 }
 
 /*
-  Cuando el DOM ya está cargado, arrancamos toda la lógica del dashboard.
+  Cuando el DOM ya está cargado,
+  arrancamos toda la lógica del dashboard.
 */
 window.addEventListener("DOMContentLoaded", inicializarDashboard);

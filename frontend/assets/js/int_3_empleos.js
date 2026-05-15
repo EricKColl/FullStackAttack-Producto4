@@ -3,7 +3,13 @@ import {
   obtenerTokenAdminObligatorio,
   obtenerUsuarioAutenticado
 } from "./api.js";
-import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
+import {
+  capitalizarTexto,
+  configurarBotonCerrarSesion,
+  confirmarAccion,
+  mostrarAlerta,
+  pintarUsuarioEnNavbar
+} from "./ui.js";
 
 /*
   Referencias a elementos del HTML de la pantalla de publicaciones.
@@ -21,6 +27,11 @@ const tablaPublicacionesBody = document.getElementById("tabla-publicaciones-body
 const mensajePublicacion = document.getElementById("mensaje-publicacion");
 const canvasGrafico = document.getElementById("grafico-publicaciones");
 const estadoGrafico = document.getElementById("estado-grafico");
+
+const buscadorPublicaciones = document.getElementById("buscador-publicaciones");
+const filtroTipoPublicaciones = document.getElementById("filtro-tipo-publicaciones");
+const botonLimpiarFiltrosPublicaciones = document.getElementById("btn-limpiar-filtros-publicaciones");
+const contadorPublicaciones = document.getElementById("contador-publicaciones");
 
 const LISTAR_PUBLICACIONES = `
   query ListarPublicaciones {
@@ -64,8 +75,9 @@ const ELIMINAR_PUBLICACION = `
 `;
 
 /*
-  Temporizadores para evitar repintados excesivos.
+  Estado local de la pantalla.
 */
+let publicacionesCache = [];
 let resizeTimeoutId = null;
 let refrescoPublicacionesTimeoutId = null;
 let socketPublicaciones = null;
@@ -106,10 +118,12 @@ async function inicializarPaginaPublicaciones() {
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
   completarDatosSugeridos();
+  configurarCalendarioFecha();
+  configurarFiltrosPublicaciones();
   configurarSocketPublicaciones();
 
   try {
-    await pintarTablaPublicaciones();
+    await refrescarPublicacionesDesdeBackend();
     await pintarGraficoCanvas();
   } catch (error) {
     mostrarAlerta(mensajePublicacion, error.message, "danger", 0);
@@ -129,10 +143,16 @@ async function inicializarPaginaPublicaciones() {
 }
 
 /*
-  Programa un repintado de tabla y gráfico.
+  Descarga las publicaciones desde GraphQL, actualiza la caché local
+  y repinta la tabla aplicando los filtros actuales.
+*/
+async function refrescarPublicacionesDesdeBackend() {
+  publicacionesCache = await cargarPublicacionesBackend();
+  pintarTablaPublicaciones();
+}
 
-  Se usa con Socket.io para evitar que varios eventos seguidos provoquen
-  repintados duplicados o parpadeos innecesarios.
+/*
+  Programa un repintado de tabla y gráfico.
 */
 function programarRepintadoPublicaciones() {
   if (refrescoPublicacionesTimeoutId) {
@@ -141,7 +161,7 @@ function programarRepintadoPublicaciones() {
 
   refrescoPublicacionesTimeoutId = window.setTimeout(async () => {
     try {
-      await pintarTablaPublicaciones();
+      await refrescarPublicacionesDesdeBackend();
       await pintarGraficoCanvas();
     } catch (error) {
       mostrarAlerta(mensajePublicacion, error.message, "danger");
@@ -151,9 +171,6 @@ function programarRepintadoPublicaciones() {
 
 /*
   Configura Socket.io para mantener esta pantalla sincronizada con el backend.
-
-  Cuando otra pestaña crea o elimina publicaciones, esta vista actualiza
-  automáticamente la tabla y el gráfico Canvas.
 */
 function configurarSocketPublicaciones() {
   if (typeof window.io !== "function") {
@@ -167,6 +184,58 @@ function configurarSocketPublicaciones() {
   socketPublicaciones = window.io("http://localhost:4000");
 
   socketPublicaciones.on("publicaciones:actualizadas", programarRepintadoPublicaciones);
+}
+
+/*
+  Configura el buscador, el filtro por tipo y el botón de limpieza.
+*/
+function configurarFiltrosPublicaciones() {
+  if (buscadorPublicaciones) {
+    buscadorPublicaciones.addEventListener("input", pintarTablaPublicaciones);
+  }
+
+  if (filtroTipoPublicaciones) {
+    filtroTipoPublicaciones.addEventListener("change", pintarTablaPublicaciones);
+  }
+
+  if (botonLimpiarFiltrosPublicaciones) {
+    botonLimpiarFiltrosPublicaciones.addEventListener("click", () => {
+      if (buscadorPublicaciones) {
+        buscadorPublicaciones.value = "";
+      }
+
+      if (filtroTipoPublicaciones) {
+        filtroTipoPublicaciones.value = "todas";
+      }
+
+      pintarTablaPublicaciones();
+    });
+  }
+}
+
+/*
+  Hace que el icono blanco personalizado del input fecha abra el calendario.
+*/
+function configurarCalendarioFecha() {
+  if (!fechaPublicacion) {
+    return;
+  }
+
+  fechaPublicacion.addEventListener("click", (evento) => {
+    const rect = fechaPublicacion.getBoundingClientRect();
+    const distanciaDesdeDerecha = rect.right - evento.clientX;
+
+    if (distanciaDesdeDerecha <= 56 && typeof fechaPublicacion.showPicker === "function") {
+      fechaPublicacion.showPicker();
+    }
+  });
+
+  fechaPublicacion.addEventListener("keydown", (evento) => {
+    if ((evento.key === "Enter" || evento.key === " ") && typeof fechaPublicacion.showPicker === "function") {
+      evento.preventDefault();
+      fechaPublicacion.showPicker();
+    }
+  });
 }
 
 /*
@@ -199,12 +268,86 @@ function obtenerDatosFormulario() {
 }
 
 /*
-  Pinta la tabla HTML con las publicaciones recibidas desde GraphQL.
+  Normaliza texto para buscar sin depender de mayúsculas, minúsculas o acentos.
 */
-async function pintarTablaPublicaciones() {
-  const publicaciones = await cargarPublicacionesBackend();
+function normalizarTexto(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
-  if (publicaciones.length === 0) {
+/*
+  Evita inyectar HTML directamente desde datos de usuario o backend.
+*/
+function escaparHTML(valor) {
+  return String(valor ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+/*
+  Devuelve las publicaciones que cumplen los filtros actuales.
+*/
+function obtenerPublicacionesFiltradas() {
+  const textoBusqueda = normalizarTexto(buscadorPublicaciones?.value || "");
+  const filtroTipo = filtroTipoPublicaciones?.value || "todas";
+
+  return publicacionesCache.filter((publicacion) => {
+    const coincideTipo = filtroTipo === "todas" || publicacion.tipo === filtroTipo;
+
+    const textoPublicacion = normalizarTexto([
+      publicacion.id,
+      publicacion.tipo,
+      publicacion.titulo,
+      publicacion.categoria,
+      publicacion.autor,
+      publicacion.ubicacion,
+      publicacion.emailContacto,
+      publicacion.fecha,
+      publicacion.descripcion
+    ].join(" "));
+
+    const coincideTexto = !textoBusqueda || textoPublicacion.includes(textoBusqueda);
+
+    return coincideTipo && coincideTexto;
+  });
+}
+
+/*
+  Actualiza el contador de resultados visibles.
+*/
+function actualizarContadorPublicaciones(totalVisibles, totalPublicaciones) {
+  if (!contadorPublicaciones) {
+    return;
+  }
+
+  if (totalPublicaciones === 0) {
+    contadorPublicaciones.textContent = "No hay publicaciones registradas.";
+    return;
+  }
+
+  if (totalVisibles === totalPublicaciones) {
+    contadorPublicaciones.textContent = `Mostrando ${totalPublicaciones} publicaciones registradas.`;
+    return;
+  }
+
+  contadorPublicaciones.textContent = `Mostrando ${totalVisibles} de ${totalPublicaciones} publicaciones registradas.`;
+}
+
+/*
+  Pinta la tabla HTML usando la caché local y los filtros activos.
+*/
+function pintarTablaPublicaciones() {
+  const publicacionesFiltradas = obtenerPublicacionesFiltradas();
+
+  actualizarContadorPublicaciones(publicacionesFiltradas.length, publicacionesCache.length);
+
+  if (publicacionesCache.length === 0) {
     tablaPublicacionesBody.innerHTML = `
       <tr class="fila-vacia">
         <td colspan="8" class="text-center text-muted">No hay ofertas o demandas registradas.</td>
@@ -213,22 +356,33 @@ async function pintarTablaPublicaciones() {
     return;
   }
 
+  if (publicacionesFiltradas.length === 0) {
+    tablaPublicacionesBody.innerHTML = `
+      <tr class="fila-vacia">
+        <td colspan="8" class="text-center text-muted">
+          No hay publicaciones que coincidan con la búsqueda o el filtro seleccionado.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   tablaPublicacionesBody.innerHTML = "";
 
-  publicaciones.forEach((publicacion) => {
+  publicacionesFiltradas.forEach((publicacion) => {
     const fila = document.createElement("tr");
     const badgeClase = publicacion.tipo === "oferta" ? "badge-oferta" : "badge-demanda";
 
     fila.innerHTML = `
-      <td>${publicacion.id}</td>
-      <td><span class="badge ${badgeClase}">${capitalizarTexto(publicacion.tipo)}</span></td>
-      <td>${publicacion.titulo}</td>
-      <td>${publicacion.fecha}</td>
-      <td class="columna-email">${publicacion.emailContacto}</td>
-      <td class="columna-descripcion">${publicacion.descripcion}</td>
-      <td>${publicacion.ubicacion}</td>
+      <td>${escaparHTML(publicacion.id)}</td>
+      <td><span class="badge ${badgeClase}">${escaparHTML(capitalizarTexto(publicacion.tipo))}</span></td>
+      <td>${escaparHTML(publicacion.titulo)}</td>
+      <td>${escaparHTML(publicacion.fecha)}</td>
+      <td class="columna-email">${escaparHTML(publicacion.emailContacto)}</td>
+      <td class="columna-descripcion">${escaparHTML(publicacion.descripcion)}</td>
+      <td>${escaparHTML(publicacion.ubicacion)}</td>
       <td class="columna-accion">
-        <button class="btn btn-sm btn-action-delete" data-id="${publicacion.id}">Eliminar</button>
+        <button class="btn btn-sm btn-action-delete" data-id="${escaparHTML(publicacion.id)}">Eliminar</button>
       </td>
     `;
 
@@ -244,16 +398,13 @@ async function pintarTablaPublicaciones() {
 
 /*
   Gestiona el alta de una publicación nueva.
-
-  La operación se envía al backend mediante GraphQL y requiere token JWT
-  de administrador porque crearPublicacion está protegida en el backend.
 */
 async function gestionarAltaPublicacion(evento) {
   evento.preventDefault();
 
   try {
     await crearPublicacionBackend(obtenerDatosFormulario());
-    await pintarTablaPublicaciones();
+    await refrescarPublicacionesDesdeBackend();
     await pintarGraficoCanvas();
     formPublicacion.reset();
     completarDatosSugeridos();
@@ -269,14 +420,16 @@ async function gestionarAltaPublicacion(evento) {
 }
 
 /*
-  Elimina una publicación por su id.
-
-  La operación se ejecuta mediante GraphQL y requiere token JWT de administrador.
+  Elimina una publicación por su id usando el modal visual propio.
 */
 async function gestionarBorradoPublicacion(idPublicacion, tituloPublicacion) {
-  const confirmarBorrado = window.confirm(
-    `¿Seguro que quieres eliminar la publicación "${tituloPublicacion}"?`
-  );
+  const confirmarBorrado = await confirmarAccion({
+    titulo: "Eliminar publicación",
+    mensaje: `¿Seguro que quieres eliminar la publicación "${tituloPublicacion}"?`,
+    textoConfirmar: "Eliminar",
+    textoCancelar: "Cancelar",
+    variante: "danger"
+  });
 
   if (!confirmarBorrado) {
     mostrarAlerta(mensajePublicacion, "Eliminación cancelada por el usuario.", "secondary");
@@ -285,7 +438,7 @@ async function gestionarBorradoPublicacion(idPublicacion, tituloPublicacion) {
 
   try {
     await eliminarPublicacionBackend(idPublicacion);
-    await pintarTablaPublicaciones();
+    await refrescarPublicacionesDesdeBackend();
     await pintarGraficoCanvas();
 
     mostrarAlerta(
@@ -299,13 +452,18 @@ async function gestionarBorradoPublicacion(idPublicacion, tituloPublicacion) {
 }
 
 /*
-  Ajusta el tamaño interno del canvas para que se vea nítido
-  en cualquier resolución o densidad de píxeles.
+  Ajusta el tamaño interno del canvas para que se vea nítido.
 */
 function prepararCanvasHD(canvas) {
   const dpr = window.devicePixelRatio || 1;
-  const anchoVisual = canvas.clientWidth || canvas.width || 760;
-  const altoVisual = canvas.clientHeight || canvas.height || 420;
+  const contenedor = canvas.closest(".canvas-wrapper");
+
+  const anchoVisual = canvas.clientWidth || contenedor?.clientWidth || canvas.width || 760;
+  const altoContenedor = contenedor?.clientHeight || canvas.clientHeight || canvas.height || 620;
+  const altoVisual = Math.max(altoContenedor, 620);
+
+  canvas.style.width = "100%";
+  canvas.style.height = `${altoVisual}px`;
 
   canvas.width = Math.round(anchoVisual * dpr);
   canvas.height = Math.round(altoVisual * dpr);
@@ -340,8 +498,16 @@ function dibujarRectanguloRedondeado(ctx, x, y, ancho, alto, radio) {
   ctx.closePath();
 }
 
+function calcularPorcentaje(valor, total) {
+  if (total === 0) {
+    return 0;
+  }
+
+  return Math.round((valor / total) * 100);
+}
+
 /*
-  Actualiza el chip superior del gráfico con un resumen rápido.
+  Actualiza el chip superior del gráfico.
 */
 function actualizarEstadoGrafico(totalOfertas, totalDemandas) {
   if (!estadoGrafico) {
@@ -359,6 +525,257 @@ function actualizarEstadoGrafico(totalOfertas, totalDemandas) {
 }
 
 /*
+  Fondo limpio y tecnológico.
+*/
+function dibujarFondoPanel(ctx, ancho, alto) {
+  const fondo = ctx.createLinearGradient(0, 0, ancho, alto);
+  fondo.addColorStop(0, "#061833");
+  fondo.addColorStop(0.48, "#081225");
+  fondo.addColorStop(1, "#040915");
+
+  ctx.fillStyle = fondo;
+  ctx.fillRect(0, 0, ancho, alto);
+
+  const brilloCentral = ctx.createRadialGradient(
+    ancho / 2,
+    alto * 0.47,
+    0,
+    ancho / 2,
+    alto * 0.47,
+    Math.min(ancho, alto) * 0.62
+  );
+
+  brilloCentral.addColorStop(0, "rgba(66, 214, 255, 0.14)");
+  brilloCentral.addColorStop(0.45, "rgba(79, 240, 190, 0.05)");
+  brilloCentral.addColorStop(1, "rgba(66, 214, 255, 0)");
+
+  ctx.fillStyle = brilloCentral;
+  ctx.fillRect(0, 0, ancho, alto);
+
+  ctx.save();
+  ctx.globalAlpha = 0.11;
+  ctx.strokeStyle = "rgba(88, 231, 255, 0.24)";
+  ctx.lineWidth = 1;
+
+  const separacion = 38;
+
+  for (let x = 24; x < ancho; x += separacion) {
+    ctx.beginPath();
+    ctx.moveTo(x, 24);
+    ctx.lineTo(x, alto - 24);
+    ctx.stroke();
+  }
+
+  for (let y = 24; y < alto; y += separacion) {
+    ctx.beginPath();
+    ctx.moveTo(24, y);
+    ctx.lineTo(ancho - 24, y);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(108, 209, 255, 0.22)";
+  ctx.lineWidth = 1.2;
+  dibujarRectanguloRedondeado(ctx, 18, 18, ancho - 36, alto - 36, 22);
+  ctx.stroke();
+}
+
+/*
+  Título centrado, sin texto decorativo innecesario.
+*/
+function dibujarTituloPanel(ctx, ancho) {
+  ctx.textAlign = "center";
+
+  ctx.fillStyle = "#f4fbff";
+  ctx.font = "900 18px Inter";
+  ctx.fillText("Distribución de ofertas y demandas", ancho / 2, 48);
+
+  ctx.fillStyle = "#91a9ca";
+  ctx.font = "600 13px Inter";
+  ctx.fillText("Comparativa real de publicaciones registradas", ancho / 2, 70);
+}
+
+/*
+  Dibuja un arco circular proporcional.
+*/
+function dibujarArcoProporcional(ctx, centroX, centroY, radio, grosor, inicio, fin, color1, color2, sombra) {
+  if (fin <= inicio) {
+    return;
+  }
+
+  const gradiente = ctx.createLinearGradient(
+    centroX - radio,
+    centroY - radio,
+    centroX + radio,
+    centroY + radio
+  );
+
+  gradiente.addColorStop(0, color1);
+  gradiente.addColorStop(1, color2);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(centroX, centroY, radio, inicio, fin);
+  ctx.strokeStyle = gradiente;
+  ctx.lineWidth = grosor;
+  ctx.lineCap = "round";
+  ctx.shadowColor = sombra;
+  ctx.shadowBlur = 22;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/*
+  Dibuja el medidor radial central.
+*/
+function dibujarMedidorCentral(ctx, ancho, alto, totalOfertas, totalDemandas) {
+  const totalPublicaciones = totalOfertas + totalDemandas;
+  const porcentajeOfertas = totalPublicaciones === 0 ? 0 : totalOfertas / totalPublicaciones;
+  const porcentajeDemandas = totalPublicaciones === 0 ? 0 : totalDemandas / totalPublicaciones;
+
+  const centroX = ancho / 2;
+  const centroY = alto * 0.43;
+  const radio = Math.min(145, Math.max(105, Math.min(ancho, alto) * 0.25));
+  const grosor = Math.min(30, Math.max(22, radio * 0.21));
+
+  ctx.save();
+
+  ctx.beginPath();
+  ctx.arc(centroX, centroY, radio, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(142, 166, 200, 0.18)";
+  ctx.lineWidth = grosor;
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  const inicio = -Math.PI / 2;
+  const finOfertas = inicio + (Math.PI * 2 * porcentajeOfertas);
+  const finDemandas = finOfertas + (Math.PI * 2 * porcentajeDemandas);
+
+  dibujarArcoProporcional(
+    ctx,
+    centroX,
+    centroY,
+    radio,
+    grosor,
+    inicio,
+    finOfertas,
+    "#72f0ff",
+    "#1799ff",
+    "rgba(66, 214, 255, 0.46)"
+  );
+
+  dibujarArcoProporcional(
+    ctx,
+    centroX,
+    centroY,
+    radio,
+    grosor,
+    finOfertas,
+    finDemandas,
+    "#7dffd5",
+    "#23bd95",
+    "rgba(79, 240, 190, 0.42)"
+  );
+
+  const halo = ctx.createRadialGradient(centroX, centroY, 0, centroX, centroY, radio * 1.25);
+  halo.addColorStop(0, "rgba(255, 255, 255, 0.045)");
+  halo.addColorStop(0.72, "rgba(66, 214, 255, 0.055)");
+  halo.addColorStop(1, "rgba(66, 214, 255, 0)");
+
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(centroX, centroY, radio * 1.25, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 52px Inter";
+  ctx.fillText(String(totalPublicaciones), centroX, centroY + 12);
+
+  ctx.fillStyle = "#91a9ca";
+  ctx.font = "800 13px Inter";
+  ctx.fillText("PUBLICACIONES", centroX, centroY + 42);
+
+  ctx.restore();
+}
+
+/*
+  Dibuja una tarjeta inferior centrada.
+*/
+function dibujarTarjetaResumen(ctx, x, y, ancho, alto, datos) {
+  ctx.save();
+
+  ctx.fillStyle = "rgba(5, 12, 24, 0.74)";
+  dibujarRectanguloRedondeado(ctx, x, y, ancho, alto, 20);
+  ctx.fill();
+
+  ctx.strokeStyle = datos.borde;
+  ctx.lineWidth = 1;
+  dibujarRectanguloRedondeado(ctx, x, y, ancho, alto, 20);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+
+  ctx.fillStyle = datos.colorTexto;
+  ctx.font = "900 18px Inter";
+  ctx.fillText(datos.titulo, x + ancho / 2, y + 28);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 34px Inter";
+  ctx.fillText(String(datos.valor), x + ancho / 2, y + 68);
+
+  ctx.fillStyle = "#91a9ca";
+  ctx.font = "700 13px Inter";
+  ctx.fillText(`${datos.porcentaje}% del total`, x + ancho / 2, y + 94);
+
+  const barraX = x + 28;
+  const barraY = y + alto - 24;
+  const barraAncho = ancho - 56;
+  const barraAlto = 8;
+  const progreso = Math.max(0, Math.min(1, datos.porcentaje / 100));
+
+  ctx.fillStyle = "rgba(142, 166, 200, 0.18)";
+  dibujarRectanguloRedondeado(ctx, barraX, barraY, barraAncho, barraAlto, 999);
+  ctx.fill();
+
+  const gradienteBarra = ctx.createLinearGradient(barraX, barraY, barraX + barraAncho, barraY);
+  gradienteBarra.addColorStop(0, datos.color1);
+  gradienteBarra.addColorStop(1, datos.color2);
+
+  ctx.fillStyle = gradienteBarra;
+  dibujarRectanguloRedondeado(ctx, barraX, barraY, barraAncho * progreso, barraAlto, 999);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/*
+  Estado vacío centrado.
+*/
+function dibujarEstadoVacioGrafico(ctx, ancho, alto) {
+  const centroX = ancho / 2;
+  const centroY = alto / 2;
+  const radio = Math.min(118, Math.max(86, Math.min(ancho, alto) * 0.22));
+
+  ctx.beginPath();
+  ctx.arc(centroX, centroY - 28, radio, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(142, 166, 200, 0.18)";
+  ctx.lineWidth = 24;
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+
+  ctx.fillStyle = "#f4fbff";
+  ctx.font = "900 21px Inter";
+  ctx.fillText("Sin publicaciones registradas", centroX, centroY - 8);
+
+  ctx.fillStyle = "#91a9ca";
+  ctx.font = "600 14px Inter";
+  ctx.fillText("Crea una oferta o una demanda para activar la comparativa.", centroX, centroY + 22);
+}
+
+/*
   Dibuja el gráfico Canvas con datos reales obtenidos desde el backend.
 */
 async function pintarGraficoCanvas() {
@@ -371,124 +788,50 @@ async function pintarGraficoCanvas() {
   const totalDemandas = publicaciones.filter((publicacion) => publicacion.tipo === "demanda").length;
   const totalPublicaciones = totalOfertas + totalDemandas;
 
+  const porcentajeOfertas = calcularPorcentaje(totalOfertas, totalPublicaciones);
+  const porcentajeDemandas = calcularPorcentaje(totalDemandas, totalPublicaciones);
+
   actualizarEstadoGrafico(totalOfertas, totalDemandas);
 
   const { ctx, ancho, alto } = prepararCanvasHD(canvasGrafico);
-  const maximo = Math.max(totalOfertas, totalDemandas, 1);
 
   ctx.clearRect(0, 0, ancho, alto);
 
-  const fondo = ctx.createLinearGradient(0, 0, 0, alto);
-  fondo.addColorStop(0, "#0d1931");
-  fondo.addColorStop(1, "#07111f");
-  ctx.fillStyle = fondo;
-  ctx.fillRect(0, 0, ancho, alto);
-
-  ctx.strokeStyle = "rgba(108, 209, 255, 0.18)";
-  ctx.lineWidth = 1;
-  dibujarRectanguloRedondeado(ctx, 16, 16, ancho - 32, alto - 32, 18);
-  ctx.stroke();
-
-  const areaGrafico = {
-    izquierda: 76,
-    derecha: ancho - 56,
-    arriba: 50,
-    abajo: alto - 82
-  };
-
-  const anchoArea = areaGrafico.derecha - areaGrafico.izquierda;
-  const altoArea = areaGrafico.abajo - areaGrafico.arriba;
-  const anchoBarra = Math.min(160, Math.max(110, Math.floor(anchoArea * 0.22)));
-  const separacionBarras = Math.max(48, Math.floor(anchoArea * 0.12));
-  const anchoConjunto = (anchoBarra * 2) + separacionBarras;
-  const inicioConjunto = areaGrafico.izquierda + ((anchoArea - anchoConjunto) / 2);
-
-  const datos = [
-    {
-      etiqueta: "Ofertas",
-      valor: totalOfertas,
-      colorSuperior: "#58e7ff",
-      colorInferior: "#2498ff",
-      brillo: "rgba(88, 231, 255, 0.34)",
-      x: inicioConjunto
-    },
-    {
-      etiqueta: "Demandas",
-      valor: totalDemandas,
-      colorSuperior: "#63ffc6",
-      colorInferior: "#26c79e",
-      brillo: "rgba(99, 255, 198, 0.30)",
-      x: inicioConjunto + anchoBarra + separacionBarras
-    }
-  ];
-
-  const pasos = 4;
-
-  for (let i = 0; i <= pasos; i += 1) {
-    const valor = Math.round((maximo / pasos) * i);
-    const y = areaGrafico.abajo - ((altoArea / pasos) * i);
-
-    ctx.strokeStyle = i === 0 ? "rgba(108, 209, 255, 0.28)" : "rgba(108, 209, 255, 0.12)";
-    ctx.lineWidth = i === 0 ? 1.6 : 1;
-    ctx.beginPath();
-    ctx.moveTo(areaGrafico.izquierda, y);
-    ctx.lineTo(areaGrafico.derecha, y);
-    ctx.stroke();
-
-    ctx.fillStyle = "#87a4ca";
-    ctx.font = "500 12px Inter";
-    ctx.textAlign = "right";
-    ctx.fillText(String(valor), areaGrafico.izquierda - 12, y + 4);
-  }
-
-  datos.forEach((dato) => {
-    const alturaBarra = (dato.valor / maximo) * (altoArea - 18);
-    const yBarra = areaGrafico.abajo - alturaBarra;
-
-    const gradienteBarra = ctx.createLinearGradient(dato.x, yBarra, dato.x, areaGrafico.abajo);
-    gradienteBarra.addColorStop(0, dato.colorSuperior);
-    gradienteBarra.addColorStop(1, dato.colorInferior);
-
-    ctx.save();
-    ctx.shadowColor = dato.brillo;
-    ctx.shadowBlur = 24;
-    ctx.fillStyle = gradienteBarra;
-    dibujarRectanguloRedondeado(ctx, dato.x, yBarra, anchoBarra, alturaBarra, 18);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.fillStyle = "rgba(255, 255, 255, 0.11)";
-    dibujarRectanguloRedondeado(
-      ctx,
-      dato.x + 8,
-      yBarra + 8,
-      anchoBarra - 16,
-      Math.max(14, alturaBarra * 0.16),
-      14
-    );
-    ctx.fill();
-
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#f7fbff";
-    ctx.font = "700 18px Inter";
-    ctx.fillText(String(dato.valor), dato.x + (anchoBarra / 2), yBarra - 12);
-
-    ctx.fillStyle = "#d8ebff";
-    ctx.font = "600 14px Inter";
-    ctx.fillText(dato.etiqueta, dato.x + (anchoBarra / 2), areaGrafico.abajo + 30);
-
-    const porcentaje = totalPublicaciones === 0 ? 0 : Math.round((dato.valor / totalPublicaciones) * 100);
-    ctx.fillStyle = "#8ea6c8";
-    ctx.font = "500 12px Inter";
-    ctx.fillText(`${porcentaje}% del total`, dato.x + (anchoBarra / 2), areaGrafico.abajo + 50);
-  });
+  dibujarFondoPanel(ctx, ancho, alto);
+  dibujarTituloPanel(ctx, ancho);
 
   if (totalPublicaciones === 0) {
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(232, 243, 255, 0.82)";
-    ctx.font = "600 16px Inter";
-    ctx.fillText("Añade publicaciones para generar la comparativa visual.", ancho / 2, alto / 2 + 10);
+    dibujarEstadoVacioGrafico(ctx, ancho, alto);
+    return;
   }
+
+  dibujarMedidorCentral(ctx, ancho, alto, totalOfertas, totalDemandas);
+
+  const margenLateral = Math.max(32, ancho * 0.07);
+  const separacion = 22;
+  const tarjetaAlto = 132;
+  const tarjetaY = alto - tarjetaAlto - 34;
+  const tarjetaAncho = (ancho - (margenLateral * 2) - separacion) / 2;
+
+  dibujarTarjetaResumen(ctx, margenLateral, tarjetaY, tarjetaAncho, tarjetaAlto, {
+    titulo: "Ofertas",
+    valor: totalOfertas,
+    porcentaje: porcentajeOfertas,
+    color1: "#72f0ff",
+    color2: "#1799ff",
+    colorTexto: "#c9f8ff",
+    borde: "rgba(88, 231, 255, 0.25)"
+  });
+
+  dibujarTarjetaResumen(ctx, margenLateral + tarjetaAncho + separacion, tarjetaY, tarjetaAncho, tarjetaAlto, {
+    titulo: "Demandas",
+    valor: totalDemandas,
+    porcentaje: porcentajeDemandas,
+    color1: "#7dffd5",
+    color2: "#23bd95",
+    colorTexto: "#ccffed",
+    borde: "rgba(79, 240, 190, 0.23)"
+  });
 }
 
 /*
