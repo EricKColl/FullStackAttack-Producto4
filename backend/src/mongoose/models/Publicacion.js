@@ -140,7 +140,7 @@ publicacionSchema.index({ tipo: 1, fecha: -1 });
  * src/utils/validators.js y evita que se guarden espacios innecesarios
  * o emails con mayúsculas.
  */
-publicacionSchema.pre('validate', function normalizarPublicacion(next) {
+publicacionSchema.pre('validate', function normalizarPublicacion() {
   if (this.tipo) {
     this.tipo = this.tipo.trim().toLowerCase();
   }
@@ -173,7 +173,6 @@ publicacionSchema.pre('validate', function normalizarPublicacion(next) {
     this.fecha = this.fecha.trim();
   }
 
-  next();
 });
 
 // =============================================================

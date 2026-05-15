@@ -106,22 +106,20 @@ seleccionadaSchema.index({ usuarioId: 1 }, { sparse: true });
  * - una cadena ISO válida;
  * - ausencia de fecha, en cuyo caso se genera automáticamente.
  */
-seleccionadaSchema.pre('validate', function normalizarSeleccionada(next) {
+seleccionadaSchema.pre('validate', function normalizarSeleccionada() {
   if (!this.fechaSeleccion) {
     this.fechaSeleccion = new Date().toISOString();
-    return next();
+    return;
   }
 
   if (this.fechaSeleccion instanceof Date) {
     this.fechaSeleccion = this.fechaSeleccion.toISOString();
-    return next();
+    return;
   }
 
   if (typeof this.fechaSeleccion === 'string') {
     this.fechaSeleccion = this.fechaSeleccion.trim();
   }
-
-  return next();
 });
 
 // =============================================================
