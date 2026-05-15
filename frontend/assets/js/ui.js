@@ -1,156 +1,243 @@
-import { cerrarSesion, obtenerUsuarioActivo } from "./almacenaje.js";
+import { borrarToken, borrarUsuarioAutenticado, obtenerUsuarioAutenticado } from "./api.js";
 
 /*
   Tiempo por defecto que estará visible una alerta.
-  Está expresado en milisegundos.
 */
 const DURACION_ALERTA_POR_DEFECTO = 4000;
 
 /*
-  Esta función devuelve un texto simple con el nombre del usuario activo.
-
-  Si no hay ningún usuario logueado, devuelve "-no login-".
-  Si sí hay usuario activo, devuelve "Nombre Apellidos".
-
-  Sirve como función auxiliar para mostrar fácilmente el usuario actual.
+  Devuelve un texto simple con el nombre del usuario activo.
 */
 export function obtenerTextoUsuarioActivo() {
-  const usuarioActivo = obtenerUsuarioActivo();
+  const usuarioActivo = obtenerUsuarioAutenticado();
 
-  /*
-    Si no hay usuario activo, devolvemos un texto por defecto.
-  */
   if (!usuarioActivo) {
     return "-no login-";
   }
 
-  /*
-    Si sí hay usuario activo, devolvemos su nombre completo.
-  */
   return `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
 }
 
 /*
-  Esta función pinta en la navbar el usuario activo.
-
-  Hace estas tareas:
-  1. busca el elemento HTML donde debe mostrarse el usuario
-  2. busca el botón de cerrar sesión
-  3. si no hay usuario activo, muestra "-no login-" y oculta el botón
-  4. si sí hay usuario activo, muestra su nombre y enseña el botón
+  Oculta el botón de cerrar sesión sin eliminarlo del flujo visual.
 */
-export function pintarUsuarioEnNavbar() {
-  /*
-    Aquí se intenta buscar primero un elemento con id "usuarioActivo".
-    Si no existe, intenta buscar otro con id "usuario-logueado-nav".
-
-    El operador || significa:
-    "usa el primero si existe; si no, usa el segundo".
-  */
-  const elementoUsuario = document.getElementById("usuarioActivo")
-    || document.getElementById("usuario-logueado-nav");
-
-  /*
-    Buscamos también el botón de cerrar sesión.
-  */
-  const botonCerrarSesion = document.getElementById("btn-cerrar-sesion");
-
-  /*
-    Si no existe ningún elemento donde pintar el usuario,
-    no podemos hacer nada, así que salimos.
-  */
-  if (!elementoUsuario) {
-    return;
-  }
-
-  /*
-    Obtenemos el usuario activo desde almacenaje.js
-  */
-  const usuarioActivo = obtenerUsuarioActivo();
-
-  /*
-    Si no hay usuario activo:
-    - mostramos texto indicando que no hay login
-    - ocultamos el botón de cerrar sesión si existe
-  */
-  if (!usuarioActivo) {
-    elementoUsuario.textContent = "Usuario activo: -no login-";
-
-    if (botonCerrarSesion) {
-      /*
-        d-none es una clase de Bootstrap que oculta el elemento.
-      */
-      botonCerrarSesion.classList.add("d-none");
-    }
-
-    return;
-  }
-
-  /*
-    Si sí hay usuario activo:
-    - mostramos su nombre en la navbar
-    - enseñamos el botón de cerrar sesión si existe
-  */
-  elementoUsuario.textContent = `Usuario activo: ${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
-
-  if (botonCerrarSesion) {
-    botonCerrarSesion.classList.remove("d-none");
-  }
-}
-
-/*
-  Esta función configura el botón de cerrar sesión.
-
-  Hace esto:
-  1. busca el botón en el HTML
-  2. si existe, le añade un evento click
-  3. al pulsarlo:
-     - pide confirmación
-     - si el usuario acepta, cierra la sesión
-     - redirige a login.html
-*/
-export function configurarBotonCerrarSesion() {
-  const botonCerrarSesion = document.getElementById("btn-cerrar-sesion");
-
-  /*
-    Si el botón no existe en esta página, salimos sin hacer nada.
-  */
+function ocultarBotonCerrarSesion(botonCerrarSesion) {
   if (!botonCerrarSesion) {
     return;
   }
 
-  /*
-    Cuando el usuario pulse el botón:
-    - confirmamos la acción
-    - se borra el usuario activo de localStorage
-    - se redirige a la página de login
-  */
-  botonCerrarSesion.addEventListener("click", () => {
-    const confirmarCierre = window.confirm("¿Seguro que quieres cerrar sesión?");
+  botonCerrarSesion.classList.remove("d-none");
+  botonCerrarSesion.classList.add("session-button-hidden");
+  botonCerrarSesion.setAttribute("aria-hidden", "true");
+  botonCerrarSesion.tabIndex = -1;
+}
+
+/*
+  Muestra el botón de cerrar sesión manteniendo el espacio reservado.
+*/
+function mostrarBotonCerrarSesion(botonCerrarSesion) {
+  if (!botonCerrarSesion) {
+    return;
+  }
+
+  botonCerrarSesion.classList.remove("d-none");
+  botonCerrarSesion.classList.remove("session-button-hidden");
+  botonCerrarSesion.setAttribute("aria-hidden", "false");
+  botonCerrarSesion.tabIndex = 0;
+}
+
+/*
+  Pinta en la navbar el usuario activo.
+*/
+export function pintarUsuarioEnNavbar() {
+  const elementoUsuario = document.getElementById("usuarioActivo")
+    || document.getElementById("usuario-logueado-nav");
+
+  const botonCerrarSesion = document.getElementById("btn-cerrar-sesion");
+
+  if (!elementoUsuario) {
+    return;
+  }
+
+  const usuarioActivo = obtenerUsuarioAutenticado();
+
+  if (!usuarioActivo) {
+    elementoUsuario.textContent = "Usuario activo: -no login-";
+    elementoUsuario.title = "Usuario activo: -no login-";
+    ocultarBotonCerrarSesion(botonCerrarSesion);
+    return;
+  }
+
+  const textoUsuario = `Usuario activo: ${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
+
+  elementoUsuario.textContent = textoUsuario;
+  elementoUsuario.title = textoUsuario;
+
+  mostrarBotonCerrarSesion(botonCerrarSesion);
+}
+
+/*
+  Configura el botón de cerrar sesión usando el modal visual propio.
+*/
+export function configurarBotonCerrarSesion() {
+  const botonCerrarSesion = document.getElementById("btn-cerrar-sesion");
+
+  if (!botonCerrarSesion) {
+    return;
+  }
+
+  if (botonCerrarSesion.dataset.configurado === "true") {
+    return;
+  }
+
+  botonCerrarSesion.dataset.configurado = "true";
+
+  botonCerrarSesion.addEventListener("click", async () => {
+    const confirmarCierre = await confirmarAccion({
+      titulo: "Cerrar sesión",
+      mensaje: "¿Seguro que quieres cerrar la sesión actual?",
+      textoConfirmar: "Cerrar sesión",
+      textoCancelar: "Cancelar",
+      variante: "primary"
+    });
 
     if (!confirmarCierre) {
       return;
     }
 
-    cerrarSesion();
+    borrarToken();
+    borrarUsuarioAutenticado();
     window.location.href = "login.html";
   });
 }
 
 /*
-  Esta función muestra una alerta Bootstrap dentro de un elemento HTML.
+  Crea un modal Bootstrap dinámico para confirmar acciones importantes.
+*/
+function crearModalConfirmacion() {
+  const modal = document.createElement("div");
 
-  Parámetros:
-  - elemento: el contenedor donde se pondrá la alerta
-  - texto: el mensaje que queremos enseñar
-  - tipo: el tipo de alerta Bootstrap (success, danger, warning, secondary, etc.)
-  - duracion: tiempo en milisegundos antes de limpiar la alerta.
-    Si vale 0 o un valor negativo, la alerta no se borrará sola.
+  modal.className = "modal fade";
+  modal.tabIndex = -1;
+  modal.setAttribute("aria-hidden", "true");
 
-  Mejora funcional:
-  - las alertas se eliminan automáticamente tras un tiempo
-  - si ya había un temporizador anterior en ese mismo elemento,
-    se cancela para evitar comportamientos extraños
+  modal.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content seccion-listado border-0">
+        <div class="modal-header border-0 pb-0">
+          <h2 class="modal-title h4" data-confirm-title>Confirmar acción</h2>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body pt-3">
+          <p class="text-muted mb-0" data-confirm-message>
+            ¿Seguro que quieres continuar?
+          </p>
+        </div>
+
+        <div class="modal-footer border-0 pt-0 d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-outline-primary" data-confirm-cancel>
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-action-delete" data-confirm-accept>
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  return modal;
+}
+
+/*
+  Muestra un modal de confirmación profesional y devuelve true/false.
+*/
+export function confirmarAccion({
+  titulo = "Confirmar acción",
+  mensaje = "¿Seguro que quieres continuar?",
+  textoConfirmar = "Confirmar",
+  textoCancelar = "Cancelar",
+  variante = "danger"
+} = {}) {
+  return new Promise((resolve) => {
+    const modalElemento = crearModalConfirmacion();
+
+    const tituloElemento = modalElemento.querySelector("[data-confirm-title]");
+    const mensajeElemento = modalElemento.querySelector("[data-confirm-message]");
+    const botonCancelar = modalElemento.querySelector("[data-confirm-cancel]");
+    const botonAceptar = modalElemento.querySelector("[data-confirm-accept]");
+
+    tituloElemento.textContent = titulo;
+    mensajeElemento.textContent = mensaje;
+    botonCancelar.textContent = textoCancelar;
+    botonAceptar.textContent = textoConfirmar;
+
+    if (variante === "primary") {
+      botonAceptar.className = "btn btn-primary";
+    } else {
+      botonAceptar.className = "btn btn-action-delete";
+    }
+
+    let resultadoConfirmacion = false;
+    let resuelto = false;
+
+    const resolverUnaVez = (resultado) => {
+      if (resuelto) {
+        return;
+      }
+
+      resuelto = true;
+      resultadoConfirmacion = resultado;
+    };
+
+    botonCancelar.addEventListener("click", () => {
+      resolverUnaVez(false);
+
+      if (window.bootstrap && window.bootstrap.Modal) {
+        window.bootstrap.Modal.getInstance(modalElemento)?.hide();
+      } else {
+        modalElemento.remove();
+        resolve(false);
+      }
+    });
+
+    botonAceptar.addEventListener("click", () => {
+      resolverUnaVez(true);
+
+      if (window.bootstrap && window.bootstrap.Modal) {
+        window.bootstrap.Modal.getInstance(modalElemento)?.hide();
+      } else {
+        modalElemento.remove();
+        resolve(true);
+      }
+    });
+
+    modalElemento.addEventListener("hidden.bs.modal", () => {
+      modalElemento.remove();
+      resolve(resultadoConfirmacion);
+    });
+
+    if (window.bootstrap && window.bootstrap.Modal) {
+      const modalBootstrap = new window.bootstrap.Modal(modalElemento, {
+        backdrop: "static",
+        keyboard: true
+      });
+
+      modalBootstrap.show();
+      return;
+    }
+
+    const respuestaFallback = window.confirm(mensaje);
+    modalElemento.remove();
+    resolve(respuestaFallback);
+  });
+}
+
+/*
+  Muestra una alerta Bootstrap dentro de un elemento HTML.
 */
 export function mostrarAlerta(
   elemento,
@@ -158,36 +245,24 @@ export function mostrarAlerta(
   tipo = "secondary",
   duracion = DURACION_ALERTA_POR_DEFECTO
 ) {
-  /*
-    Si no existe el elemento donde mostrar la alerta,
-    no hacemos nada.
-  */
   if (!elemento) {
     return;
   }
 
-  /*
-    Si este mismo elemento ya tenía una alerta programada para borrarse,
-    cancelamos ese temporizador antes de crear uno nuevo.
-  */
   if (elemento.__alertTimeoutId) {
     window.clearTimeout(elemento.__alertTimeoutId);
     elemento.__alertTimeoutId = null;
   }
 
-  /*
-    Insertamos HTML dentro del elemento.
-    Se genera un div con clases Bootstrap de alerta.
-  */
-  elemento.innerHTML = `
-    <div class="alert alert-${tipo}" role="alert">
-      ${texto}
-    </div>
-  `;
+  elemento.innerHTML = "";
 
-  /*
-    Si la duración es mayor que 0, programamos la limpieza automática.
-  */
+  const alerta = document.createElement("div");
+  alerta.className = `alert alert-${tipo}`;
+  alerta.setAttribute("role", "alert");
+  alerta.textContent = texto;
+
+  elemento.appendChild(alerta);
+
   if (duracion > 0) {
     elemento.__alertTimeoutId = window.setTimeout(() => {
       limpiarAlerta(elemento);
@@ -196,75 +271,45 @@ export function mostrarAlerta(
 }
 
 /*
-  Esta función limpia la alerta de un elemento.
-
-  Lo que hace es vaciar su contenido HTML
-  y cancelar cualquier temporizador pendiente asociado a ese elemento.
+  Limpia la alerta de un elemento.
 */
 export function limpiarAlerta(elemento) {
-  /*
-    Si no existe el elemento, salimos.
-  */
   if (!elemento) {
     return;
   }
 
-  /*
-    Si había un temporizador pendiente, lo cancelamos.
-  */
   if (elemento.__alertTimeoutId) {
     window.clearTimeout(elemento.__alertTimeoutId);
     elemento.__alertTimeoutId = null;
   }
 
-  /*
-    Dejamos el contenido vacío.
-  */
   elemento.innerHTML = "";
 }
 
 /*
-  Esta función devuelve una clase CSS para el badge del rol.
-
-  Si el rol es "empresa", devuelve una clase concreta.
-  Si no, devuelve la de candidato.
-
-  Esto permite que los roles se vean con estilos visuales diferentes.
+  Devuelve una clase CSS para el badge del rol.
 */
 export function obtenerClaseBadgeRol(rol) {
-  return rol === "empresa" ? "badge-rol-empresa" : "badge-rol-candidato";
+  if (rol === "admin") {
+    return "badge-rol-admin";
+  }
+
+  if (rol === "empresa") {
+    return "badge-rol-empresa";
+  }
+
+  return "badge-rol-candidato";
 }
 
 /*
-  Esta función pone en mayúscula la primera letra de un texto.
-
-  Ejemplo:
-  "empresa" -> "Empresa"
-  "candidato" -> "Candidato"
-
-  También protege por si el texto viene vacío, null o undefined.
+  Pone en mayúscula la primera letra de un texto.
 */
 export function capitalizarTexto(texto) {
-  /*
-    Convertimos cualquier valor a string.
-    Si texto es null o undefined, usamos "".
-  */
   const textoNormal = String(texto || "");
 
-  /*
-    Si después de normalizar está vacío,
-    devolvemos string vacío.
-  */
   if (!textoNormal) {
     return "";
   }
 
-  /*
-    charAt(0) toma el primer carácter
-    toUpperCase() lo pone en mayúscula
-    slice(1) toma el resto del texto desde la posición 1
-
-    Luego se unen ambas partes.
-  */
   return textoNormal.charAt(0).toUpperCase() + textoNormal.slice(1);
 }

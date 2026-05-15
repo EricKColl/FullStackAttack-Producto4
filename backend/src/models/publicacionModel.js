@@ -1,32 +1,34 @@
 /**
  * @file src/models/publicacionModel.js
- * @description Capa de acceso a datos para la entidad Publicación (oferta/demanda).
+ * @description Capa de acceso a datos para la entidad Publicación usando Mongoose.
  *
- * Porta al backend la lógica de `almacenaje.js` del Producto 2 relacionada
- * con publicaciones (listarPublicaciones, crearPublicacion, eliminarPublicacion).
+ * Este archivo actúa como puente entre los resolvers de GraphQL y la base de datos.
  *
- * Estado actual (Fase 4):
- *   La entidad Publicacion ya persiste en MongoDB.
- *   La lógica de validación, normalización y serialización se mantiene,
- *   pero la capa de almacenamiento en memoria ha sido sustituida por
- *   operaciones reales sobre la colección `publicaciones`.
+ * En fases anteriores, este model trabajaba directamente con el driver nativo de MongoDB
+ * mediante getDb() y db.collection('publicaciones').
  *
- * Relación con otras entidades:
- *   - Una publicación puede estar seleccionada por el dashboard (ver seleccionadaModel).
- *   - Al eliminar una publicación, se debe limpiar también su selección
- *     (esa coordinación la hará el resolver, no el model).
+ * En el Producto 4, esta capa se migra a Mongoose para cumplir el requisito de usar
+ * un ODM (Object Document Mapper). Gracias a Mongoose podemos trabajar con modelos,
+ * schemas, validaciones, índices y métodos más estructurados.
  *
- * Diseño:
- *   - Las funciones reciben datos crudos, los normalizan y validan.
- *   - Si los datos no pasan validación, lanzan ValidationError.
- *   - Si el recurso no existe, lanzan NotFoundError.
- *   - Devuelven copias (no referencias) para evitar mutaciones accidentales
- *     desde capas superiores.
- *   - Mantienen el campo `id` numérico para no romper compatibilidad con
- *     la lógica heredada de Fase 3 y del Producto 2.
+ * IMPORTANTE:
+ *   - Se mantienen los mismos nombres de funciones públicas.
+ *   - Se mantienen los mismos parámetros.
+ *   - Se mantienen los mismos datos de retorno.
+ *
+ * De esta forma, los resolvers de GraphQL no necesitan cambiar.
+ * Solo cambiamos la implementación interna del model.
+ *
+ * Entidad relacionada:
+ *   - PublicacionMongoose representa la colección `publicaciones`.
+ *   - seleccionadaModel puede utilizar publicaciones para mostrar el dashboard.
+ *
+ * Compatibilidad:
+ *   - Se conserva el campo `id` numérico para no romper el frontend ni GraphQL.
+ *   - MongoDB también genera `_id`, pero no se expone hacia capas superiores.
  */
 
-import { getDb } from '../config/db.js';
+import { PublicacionMongoose } from '../mongoose/models/Publicacion.js';
 
 import {
   normalizarTexto,
@@ -37,146 +39,117 @@ import {
   validarLongitudMinima,
   validarTipoPublicacion,
 } from '../utils/validators.js';
+
 import {
   ValidationError,
   NotFoundError,
 } from '../utils/errors.js';
 
 /**
- * Devuelve una copia defensiva de una publicación.
- * Aunque no tiene datos sensibles como una contraseña, seguimos el mismo patrón
- * que con Usuario para que las mutaciones externas nunca afecten al estado interno.
+ * Devuelve una copia limpia de una publicación.
  *
- * @param {object} publicacion
- * @returns {object}
+ * Mongoose devuelve documentos con información interna como `_id` y `__v`.
+ * Como GraphQL y el frontend trabajan con el campo `id` numérico, eliminamos
+ * esos campos internos antes de devolver la publicación.
+ *
+ * También se mantiene una copia defensiva para evitar mutaciones accidentales
+ * desde resolvers u otras capas.
+ *
+ * @param {object} publicacion Documento Mongoose o objeto plano.
+ * @returns {object} Publicación serializada.
  */
 function serializarPublicacion(publicacion) {
-  return { ...publicacion };
+  const obj = publicacion.toObject ? publicacion.toObject() : publicacion;
+
+  delete obj._id;
+  delete obj.__v;
+
+  return { ...obj };
 }
 
 /**
- * Devuelve todas las publicaciones persistidas en MongoDB,
- * ordenadas por fecha descendente.
+ * Devuelve todas las publicaciones almacenadas en MongoDB mediante Mongoose.
  *
- * En caso de empate en fecha, ordena por id descendente
- * (más reciente primero).
+ * Orden:
+ *   1. Fecha descendente.
+ *   2. Id descendente en caso de empate.
  *
- * Flujo:
- *   1. Obtener la conexión activa a la base de datos.
- *   2. Leer todos los documentos de la colección `publicaciones`.
- *   3. Ordenarlos en memoria por fecha descendente y, en empate, por id.
- *   4. Serializar cada publicación para devolver copias defensivas.
+ * Antes se hacía con:
+ *   db.collection('publicaciones').find({}).toArray()
  *
- * Nota:
- *   Se mantiene el ordenado en JavaScript para conservar exactamente
- *   el mismo comportamiento de la Fase 3.
+ * Ahora se hace con:
+ *   PublicacionMongoose.find({})
  *
  * @returns {Promise<Array<object>>}
  */
 export async function listarPublicaciones() {
-  const db = getDb();
-  const coleccionPublicaciones = db.collection('publicaciones');
+  const publicaciones = await PublicacionMongoose
+    .find({})
+    .sort({ fecha: -1, id: -1 });
 
-  const publicacionesDb = await coleccionPublicaciones.find({}).toArray();
-
-  const ordenadas = [...publicacionesDb].sort((a, b) => {
-    const fechaA = new Date(a.fecha).getTime();
-    const fechaB = new Date(b.fecha).getTime();
-
-    if (fechaA !== fechaB) {
-      return fechaB - fechaA;
-    }
-
-    return b.id - a.id;
-  });
-
-  return ordenadas.map(serializarPublicacion);
+  return publicaciones.map(serializarPublicacion);
 }
 
 /**
- * Busca una publicación persistida en MongoDB por su id numérico.
+ * Busca una publicación por su id numérico.
  *
- * Flujo:
- *   1. Convertir el id recibido a número.
- *   2. Consultar la colección `publicaciones` por ese campo `id`.
- *   3. Si existe, devolverla serializada; si no, devolver null.
+ * Se convierte el id recibido a Number porque GraphQL puede recibirlo como string
+ * al venir definido como ID.
  *
  * @param {number|string} id
  * @returns {Promise<object|null>}
  */
 export async function buscarPublicacionPorId(id) {
-  const db = getDb();
-  const coleccionPublicaciones = db.collection('publicaciones');
-
   const idNum = Number(id);
-  const encontrada = await coleccionPublicaciones.findOne({ id: idNum });
+
+  const encontrada = await PublicacionMongoose.findOne({ id: idNum });
 
   return encontrada ? serializarPublicacion(encontrada) : null;
 }
 
 /**
- * Filtra publicaciones persistidas en MongoDB por tipo
- * ("oferta" o "demanda").
+ * Lista publicaciones filtradas por tipo.
  *
- * Flujo:
- *   1. Validar el tipo recibido.
- *   2. Normalizar el tipo.
- *   3. Consultar la colección `publicaciones` por ese campo.
- *   4. Ordenar los resultados con la misma lógica de la Fase 3.
- *   5. Devolver copias serializadas.
+ * Tipos permitidos:
+ *   - oferta
+ *   - demanda
+ *
+ * Se valida antes de consultar para evitar búsquedas incorrectas.
  *
  * @param {string} tipo
  * @returns {Promise<Array<object>>}
  */
 export async function listarPublicacionesPorTipo(tipo) {
-  const db = getDb();
-  const coleccionPublicaciones = db.collection('publicaciones');
-
   validarTipoPublicacion(tipo);
+
   const tipoNorm = normalizarTexto(tipo).toLowerCase();
 
-  const publicacionesDb = await coleccionPublicaciones
+  const publicaciones = await PublicacionMongoose
     .find({ tipo: tipoNorm })
-    .toArray();
+    .sort({ fecha: -1, id: -1 });
 
-  const ordenadas = [...publicacionesDb].sort((a, b) => {
-    const fechaA = new Date(a.fecha).getTime();
-    const fechaB = new Date(b.fecha).getTime();
-
-    if (fechaA !== fechaB) {
-      return fechaB - fechaA;
-    }
-
-    return b.id - a.id;
-  });
-
-  return ordenadas.map(serializarPublicacion);
+  return publicaciones.map(serializarPublicacion);
 }
 
 /**
- * Crea una nueva publicación en MongoDB tras normalizar y validar los datos.
+ * Crea una nueva publicación usando Mongoose.
  *
  * Flujo:
- *   1. Validar campos obligatorios presentes.
+ *   1. Validar campos obligatorios.
  *   2. Normalizar textos y email.
- *   3. Validar tipo, formato email, longitud descripción y fecha ISO.
- *   4. Calcular nuevo id autoincremental manteniendo compatibilidad con Fase 3.
- *   5. Insertar en la colección `publicaciones`.
- *   6. Devolver la publicación creada.
+ *   3. Aplicar validaciones específicas.
+ *   4. Calcular el siguiente id numérico.
+ *   5. Crear el documento con PublicacionMongoose.create().
+ *   6. Devolver la publicación serializada.
  *
- * Importante:
- *   En esta fase seguimos usando `id` numérico como identificador funcional
- *   de la API, aunque MongoDB añada también su campo interno `_id`.
+ * Se mantiene el id autoincremental manual porque el frontend y GraphQL heredados
+ * trabajan con `id`, no con `_id`.
  *
  * @param {object} datos
- * @returns {Promise<object>} Publicación creada.
+ * @returns {Promise<object>}
  * @throws {ValidationError}
  */
 export async function crearPublicacion(datos) {
-  const db = getDb();
-  const coleccionPublicaciones = db.collection('publicaciones');
-
-  // 1. Campos obligatorios.
   validarCamposObligatorios(datos, [
     'tipo',
     'titulo',
@@ -188,7 +161,6 @@ export async function crearPublicacion(datos) {
     'fecha',
   ]);
 
-  // 2. Normalización.
   const tipo = normalizarTexto(datos.tipo).toLowerCase();
   const titulo = normalizarTexto(datos.titulo);
   const categoria = normalizarTexto(datos.categoria);
@@ -198,22 +170,18 @@ export async function crearPublicacion(datos) {
   const emailContacto = normalizarEmail(datos.emailContacto);
   const fecha = normalizarTexto(datos.fecha);
 
-  // 3. Validaciones específicas.
   validarTipoPublicacion(tipo);
   validarEmail(emailContacto);
   validarFechaISO(fecha);
   validarLongitudMinima(descripcion, 10, 'descripcion');
 
-  // 4. Nuevo id autoincremental.
-  const ultimaPublicacion = await coleccionPublicaciones.findOne(
-    {},
-    { sort: { id: -1 } }
-  );
+  const ultimaPublicacion = await PublicacionMongoose
+    .findOne({})
+    .sort({ id: -1 });
 
   const siguienteId = ultimaPublicacion ? ultimaPublicacion.id + 1 : 1;
 
-  // 5. Insertar y devolver.
-  const nueva = {
+  const nueva = await PublicacionMongoose.create({
     id: siguienteId,
     tipo,
     titulo,
@@ -223,74 +191,58 @@ export async function crearPublicacion(datos) {
     descripcion,
     emailContacto,
     fecha,
-  };
-
-  await coleccionPublicaciones.insertOne(nueva);
+  });
 
   return serializarPublicacion(nueva);
 }
 
 /**
- * Elimina una publicación persistida en MongoDB por su id.
+ * Elimina una publicación por su id.
  *
  * Flujo:
- *   1. Convertir el id recibido a número.
- *   2. Validar que el id sea un entero positivo.
- *   3. Buscar la publicación en la colección `publicaciones`.
+ *   1. Convertir el id a número.
+ *   2. Validar que sea entero positivo.
+ *   3. Buscar y eliminar con findOneAndDelete().
  *   4. Si no existe, lanzar NotFoundError.
- *   5. Eliminarla mediante deleteOne().
- *   6. Devolver la publicación eliminada.
+ *   5. Devolver la publicación eliminada.
  *
- * Importante:
- *   MongoDB no devuelve automáticamente el documento borrado,
- *   por lo que primero debemos localizarlo y después eliminarlo.
+ * findOneAndDelete() permite recuperar el documento eliminado en una sola operación.
  *
  * @param {number|string} id
- * @returns {Promise<object>} Publicación eliminada.
- * @throws {ValidationError} Si el id no es un número válido.
- * @throws {NotFoundError} Si no existe publicación con ese id.
+ * @returns {Promise<object>}
+ * @throws {ValidationError}
+ * @throws {NotFoundError}
  */
 export async function eliminarPublicacionPorId(id) {
-  const db = getDb();
-  const coleccionPublicaciones = db.collection('publicaciones');
-
   const idNum = Number(id);
 
-  // 1. Validar identificador.
   if (!Number.isInteger(idNum) || idNum <= 0) {
     throw new ValidationError('El identificador de la publicación no es válido.');
   }
 
-  // 2. Buscar antes de eliminar.
-  const existente = await coleccionPublicaciones.findOne({ id: idNum });
+  const eliminada = await PublicacionMongoose.findOneAndDelete({ id: idNum });
 
-  if (!existente) {
+  if (!eliminada) {
     throw new NotFoundError(`No se encontró ninguna publicación con id ${idNum}.`);
   }
 
-  // 3. Eliminar en MongoDB.
-  await coleccionPublicaciones.deleteOne({ id: idNum });
-
-  // 4. Devolver copia defensiva.
-  return serializarPublicacion(existente);
+  return serializarPublicacion(eliminada);
 }
 
 /**
- * Devuelve el número de publicaciones por tipo
- * usando la colección `publicaciones` de MongoDB.
+ * Cuenta publicaciones por tipo.
  *
- * Se utiliza en el resumen del dashboard
- * (consumido por la entidad Seleccionada).
+ * Se usa en el resumen del dashboard para mostrar:
+ *   - total de ofertas
+ *   - total de demandas
+ *   - total general
  *
  * @returns {Promise<{ofertas: number, demandas: number, total: number}>}
  */
 export async function contarPublicaciones() {
-  const db = getDb();
-  const coleccionPublicaciones = db.collection('publicaciones');
-
-  const ofertas = await coleccionPublicaciones.countDocuments({ tipo: 'oferta' });
-  const demandas = await coleccionPublicaciones.countDocuments({ tipo: 'demanda' });
-  const total = await coleccionPublicaciones.countDocuments({});
+  const ofertas = await PublicacionMongoose.countDocuments({ tipo: 'oferta' });
+  const demandas = await PublicacionMongoose.countDocuments({ tipo: 'demanda' });
+  const total = await PublicacionMongoose.countDocuments({});
 
   return {
     ofertas,

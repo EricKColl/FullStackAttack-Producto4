@@ -4,3 +4,5 @@
  */
 
 export { UsuarioMongoose } from './Usuario.js';
+export { PublicacionMongoose } from './Publicacion.js';
+export { SeleccionadaMongoose } from './Seleccionada.js';

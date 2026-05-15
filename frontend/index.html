@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Título mostrado en la pestaña del navegador -->
-  <title>JobConnect | Plataforma de empleo</title>
+  <title>JobConnect | Plataforma FullStack de empleo</title>
 
   <!-- Bootstrap 5 para diseño responsive y componentes visuales -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -15,15 +15,552 @@
 
   <!-- Hoja de estilos propia del proyecto -->
   <link rel="stylesheet" href="assets/css/styles.css" />
+
+  <!-- Estilos específicos de la portada -->
+  <style>
+    .home-live-section,
+    .home-route-section {
+      position: relative;
+      margin-bottom: 1.5rem;
+      border: 1px solid rgba(120, 170, 255, 0.16);
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 12% 18%, rgba(66, 214, 255, 0.11), transparent 26%),
+        radial-gradient(circle at 88% 22%, rgba(79, 240, 190, 0.08), transparent 24%),
+        linear-gradient(180deg, rgba(8, 17, 34, 0.96), rgba(5, 12, 24, 0.99));
+      box-shadow: 0 22px 56px rgba(1, 9, 24, 0.34);
+      overflow: hidden;
+    }
+
+    .home-live-section::before,
+    .home-route-section::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(66, 214, 255, 0.05), transparent 35%, rgba(79, 240, 190, 0.025)),
+        linear-gradient(rgba(88, 167, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88, 167, 255, 0.04) 1px, transparent 1px);
+      background-size: auto, 42px 42px, 42px 42px;
+      opacity: 0.72;
+      pointer-events: none;
+    }
+
+    .home-live-section > *,
+    .home-route-section > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .home-live-section {
+      padding: clamp(1.7rem, 4vw, 3.2rem);
+    }
+
+    .home-route-section {
+      padding: clamp(1.8rem, 4vw, 3rem);
+    }
+
+    .home-section-header {
+      max-width: 1080px;
+      margin: 0 auto 2rem;
+      text-align: center;
+    }
+
+    .home-section-header h2 {
+      margin: 0;
+      color: #ffffff;
+      font-size: clamp(2.1rem, 4.5vw, 4.15rem);
+      font-weight: 900;
+      line-height: 1.04;
+      letter-spacing: -0.06em;
+      text-align: center;
+    }
+
+    .home-section-header p {
+      max-width: 880px;
+      margin: 1rem auto 0;
+      color: #91a9ca;
+      font-size: 1rem;
+      line-height: 1.75;
+      text-align: center;
+    }
+
+    .live-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 1.2rem;
+      align-items: stretch;
+    }
+
+    .live-console {
+      position: relative;
+      min-height: 540px;
+      padding: 1.2rem;
+      border-radius: 26px;
+      border: 1px solid rgba(91, 215, 255, 0.18);
+      background:
+        radial-gradient(circle at 50% 10%, rgba(66, 214, 255, 0.13), transparent 32%),
+        linear-gradient(180deg, rgba(4, 10, 22, 0.92), rgba(7, 16, 31, 0.98));
+      overflow: hidden;
+    }
+
+    .live-console::before {
+      content: "";
+      position: absolute;
+      left: -20%;
+      top: 0;
+      width: 140%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(66, 214, 255, 0.75), transparent);
+      box-shadow: 0 0 24px rgba(66, 214, 255, 0.35);
+      animation: liveScan 4.8s ease-in-out infinite;
+    }
+
+    .live-console-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(120, 170, 255, 0.14);
+    }
+
+    .live-console-header strong {
+      color: #d7f9ff;
+      font-size: 0.82rem;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .live-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: #c9fff0;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .live-status::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #4ff0be;
+      box-shadow: 0 0 16px rgba(79, 240, 190, 0.75);
+      animation: livePulse 1.6s ease-in-out infinite;
+    }
+
+    .live-dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .live-kpi {
+      min-height: 122px;
+      padding: 1rem;
+      border-radius: 20px;
+      border: 1px solid rgba(120, 170, 255, 0.14);
+      background:
+        linear-gradient(180deg, rgba(10, 21, 42, 0.86), rgba(6, 13, 26, 0.96));
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .live-kpi span {
+      color: #91a9ca;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.055em;
+    }
+
+    .live-kpi strong {
+      margin-top: 0.35rem;
+      color: #ffffff;
+      font-family: "Sora", "Inter", sans-serif;
+      font-size: 2rem;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .live-kpi small {
+      margin-top: 0.45rem;
+      color: #91a9ca;
+      font-size: 0.78rem;
+      font-weight: 650;
+    }
+
+    .live-main-panel {
+      min-height: 280px;
+      padding: 1rem;
+      border-radius: 22px;
+      border: 1px solid rgba(91, 215, 255, 0.14);
+      background: rgba(3, 8, 18, 0.55);
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .live-radar {
+      position: relative;
+      min-height: 250px;
+      border-radius: 22px;
+      border: 1px solid rgba(120, 170, 255, 0.12);
+      background:
+        radial-gradient(circle at center, rgba(66, 214, 255, 0.13), transparent 24%),
+        rgba(7, 16, 31, 0.72);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .live-radar::before,
+    .live-radar::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(91, 215, 255, 0.18);
+    }
+
+    .live-radar::before {
+      width: 210px;
+      height: 210px;
+      animation: radarPulse 3.8s ease-in-out infinite;
+    }
+
+    .live-radar::after {
+      width: 130px;
+      height: 130px;
+      border-style: dashed;
+      animation: radarRotate 14s linear infinite;
+    }
+
+    .radar-core {
+      position: relative;
+      z-index: 2;
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      border: 1px solid rgba(91, 215, 255, 0.34);
+      background:
+        radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.18), transparent 25%),
+        linear-gradient(135deg, rgba(66, 214, 255, 0.22), rgba(7, 16, 31, 0.95));
+      box-shadow: 0 0 38px rgba(66, 214, 255, 0.24);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 900;
+      font-family: "Sora", "Inter", sans-serif;
+    }
+
+    .radar-dot {
+      position: absolute;
+      z-index: 3;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #4ff0be;
+      box-shadow: 0 0 18px rgba(79, 240, 190, 0.8);
+    }
+
+    .radar-dot.one {
+      top: 24%;
+      right: 26%;
+    }
+
+    .radar-dot.two {
+      bottom: 28%;
+      left: 22%;
+      background: #42d6ff;
+      box-shadow: 0 0 18px rgba(66, 214, 255, 0.8);
+    }
+
+    .radar-dot.three {
+      bottom: 22%;
+      right: 30%;
+      background: #ffd772;
+      box-shadow: 0 0 18px rgba(255, 215, 114, 0.65);
+    }
+
+    .live-stream {
+      display: grid;
+      gap: 0.72rem;
+    }
+
+    .stream-row {
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr) auto;
+      gap: 0.7rem;
+      align-items: center;
+      min-height: 54px;
+      padding: 0.7rem 0.75rem;
+      border-radius: 16px;
+      border: 1px solid rgba(120, 170, 255, 0.10);
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .stream-row span {
+      color: #d7f9ff;
+      font-size: 0.78rem;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stream-bar {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(142, 166, 200, 0.16);
+      overflow: hidden;
+    }
+
+    .stream-bar::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--stream);
+      border-radius: inherit;
+      background: linear-gradient(90deg, #42d6ff, #4ff0be);
+      box-shadow: 0 0 18px rgba(66, 214, 255, 0.28);
+      animation: streamGlow 2.4s ease-in-out infinite;
+    }
+
+    .stream-row strong {
+      color: #ffffff;
+      font-size: 0.9rem;
+      font-weight: 900;
+    }
+
+    .live-side {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .live-side-card {
+      min-height: 164px;
+      padding: 1.25rem;
+      border-radius: 24px;
+      border: 1px solid rgba(120, 170, 255, 0.15);
+      background:
+        linear-gradient(135deg, rgba(10, 21, 42, 0.90), rgba(6, 13, 26, 0.96));
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .live-side-card h3 {
+      margin: 0 0 0.65rem;
+      color: #ffffff;
+      font-size: 1.22rem;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .live-side-card p {
+      margin: 0;
+      color: #91a9ca;
+      line-height: 1.65;
+      text-align: center;
+    }
+
+    .route-board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .route-card {
+      position: relative;
+      min-height: 285px;
+      padding: 1.35rem 1.15rem;
+      border-radius: 24px;
+      border: 1px solid rgba(120, 170, 255, 0.15);
+      background:
+        radial-gradient(circle at top, rgba(66, 214, 255, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(10, 21, 42, 0.88), rgba(6, 13, 26, 0.96));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .route-card::before {
+      content: "";
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      top: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(66, 214, 255, 0.60), transparent);
+      opacity: 0.85;
+    }
+
+    .route-number {
+      width: 58px;
+      height: 58px;
+      margin-bottom: 1rem;
+      border-radius: 18px;
+      border: 1px solid rgba(91, 215, 255, 0.24);
+      background:
+        linear-gradient(135deg, rgba(66, 214, 255, 0.15), rgba(79, 240, 190, 0.07));
+      color: #ffffff;
+      font-family: "Sora", "Inter", sans-serif;
+      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 26px rgba(66, 214, 255, 0.12);
+    }
+
+    .route-card h3 {
+      margin: 0 0 0.65rem;
+      color: #ffffff;
+      font-size: 1.18rem;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .route-card p {
+      margin: 0;
+      color: #91a9ca;
+      line-height: 1.62;
+      text-align: center;
+    }
+
+    .route-card strong {
+      margin-top: 1rem;
+      display: inline-flex;
+      min-height: 34px;
+      padding: 0.42rem 0.72rem;
+      border-radius: 999px;
+      border: 1px solid rgba(91, 215, 255, 0.16);
+      background: rgba(66, 214, 255, 0.07);
+      color: #d7f9ff;
+      font-size: 0.78rem;
+      font-weight: 850;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @keyframes liveScan {
+      0% {
+        transform: translateY(0);
+        opacity: 0;
+      }
+
+      20% {
+        opacity: 1;
+      }
+
+      50% {
+        transform: translateY(540px);
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: translateY(540px);
+        opacity: 0;
+      }
+    }
+
+    @keyframes livePulse {
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 0.75;
+      }
+
+      50% {
+        transform: scale(1.35);
+        opacity: 1;
+      }
+    }
+
+    @keyframes radarPulse {
+      0%,
+      100% {
+        transform: scale(0.96);
+        opacity: 0.45;
+      }
+
+      50% {
+        transform: scale(1.06);
+        opacity: 0.9;
+      }
+    }
+
+    @keyframes radarRotate {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes streamGlow {
+      0%,
+      100% {
+        filter: brightness(0.95);
+      }
+
+      50% {
+        filter: brightness(1.35);
+      }
+    }
+
+    @media (max-width: 1200px) {
+      .live-layout,
+      .live-main-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .route-board {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .live-console {
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .live-dashboard-grid,
+      .route-board {
+        grid-template-columns: 1fr;
+      }
+
+      .live-radar {
+        min-height: 260px;
+      }
+
+      .stream-row {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+    }
+  </style>
 </head>
 
 <body>
-  <!-- =========================
-       BARRA DE NAVEGACIÓN
-       =========================
-       La marca lleva a la portada principal.
-       El resto de enlaces mantiene el acceso directo a las páginas exigidas.
-  -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
       <a class="navbar-brand" href="index.html">JobConnect</a>
@@ -51,190 +588,273 @@
     </div>
   </nav>
 
-  <!-- =========================
-       CONTENIDO PRINCIPAL
-       ========================= -->
+  <script>
+    (function () {
+      const usuarioActivo = document.getElementById("usuarioActivo");
+      const botonCerrarSesion = document.getElementById("btn-cerrar-sesion");
+
+      if (!usuarioActivo || !botonCerrarSesion) {
+        return;
+      }
+
+      try {
+        const textoUsuario = localStorage.getItem("jobconnect_usuario");
+        const usuario = textoUsuario ? JSON.parse(textoUsuario) : null;
+
+        if (usuario && usuario.nombre && usuario.apellidos) {
+          const texto = "Usuario activo: " + usuario.nombre + " " + usuario.apellidos;
+
+          usuarioActivo.textContent = texto;
+          usuarioActivo.title = texto;
+
+          botonCerrarSesion.classList.remove("d-none");
+          botonCerrarSesion.classList.remove("session-button-hidden");
+          botonCerrarSesion.setAttribute("aria-hidden", "false");
+          botonCerrarSesion.tabIndex = 0;
+        } else {
+          usuarioActivo.textContent = "Usuario activo: -no login-";
+          usuarioActivo.title = "Usuario activo: -no login-";
+
+          botonCerrarSesion.classList.remove("d-none");
+          botonCerrarSesion.classList.add("session-button-hidden");
+          botonCerrarSesion.setAttribute("aria-hidden", "true");
+          botonCerrarSesion.tabIndex = -1;
+        }
+      } catch (error) {
+        usuarioActivo.textContent = "Usuario activo: -no login-";
+        usuarioActivo.title = "Usuario activo: -no login-";
+
+        botonCerrarSesion.classList.remove("d-none");
+        botonCerrarSesion.classList.add("session-button-hidden");
+        botonCerrarSesion.setAttribute("aria-hidden", "true");
+        botonCerrarSesion.tabIndex = -1;
+      }
+    })();
+  </script>
+
   <main class="container py-4">
-    <!-- Hero principal de la portada -->
-    <section class="hero-home text-center">
-      <span class="hero-badge">Plataforma de empleo digital · Producto 2 · HTML5 + Persistencia local</span>
-      <h1 class="hero-title">
-        Conecta talento y oportunidades con una experiencia
-        <span class="hero-highlight">más visual, más ágil y más profesional</span>
+    <section class="landing-hero">
+      <h1>
+        Plataforma FullStack para conectar talento, empresas y oportunidades laborales
       </h1>
-      <p class="hero-description">
-        JobConnect es una aplicación web orientada a la gestión moderna de ofertas y demandas laborales.
-        Centraliza el acceso de usuarios, el registro de publicaciones, la persistencia local del sistema y la
-        organización visual de candidaturas en un entorno claro, innovador y preparado para evolucionar.
+
+      <p>
+        JobConnect centraliza la gestión de usuarios, publicaciones laborales, selección de oportunidades y actualización
+        de datos en tiempo real mediante una arquitectura JavaScript moderna, conectada y preparada para crecer.
       </p>
 
-      <div class="hero-actions">
-        <a href="login.html" class="btn btn-primary btn-lg">Acceder a la aplicación</a>
-        <a href="dashboard.html" class="btn btn-outline-primary btn-lg">Explorar el dashboard</a>
+      <div class="landing-actions">
+        <a href="login.html" class="btn btn-primary btn-lg">Iniciar sesión</a>
+        <a href="dashboard.html" class="btn btn-outline-primary btn-lg">Ver dashboard</a>
       </div>
 
-      <div class="hero-metrics">
-        <div class="hero-metric">
-          <strong>4</strong>
-          <span>módulos funcionales conectados entre sí</span>
-        </div>
-        <div class="hero-metric">
-          <strong>HTML5</strong>
-          <span>Canvas, Drag &amp; Drop, WebStorage e IndexedDB</span>
-        </div>
-        <div class="hero-metric">
-          <strong>UX</strong>
-          <span>navegación clara, interacción directa y persistencia local</span>
-        </div>
-        <div class="hero-metric">
-          <strong>Vanilla JS</strong>
-          <span>arquitectura modular lista para crecer con backend</span>
-        </div>
+      <div class="landing-tech-row">
+        <span>Node.js</span>
+        <span>Express</span>
+        <span>GraphQL</span>
+        <span>MongoDB</span>
+        <span>Socket.io</span>
       </div>
     </section>
 
-    <!-- Bloque explicativo principal -->
-    <section class="page-intro mb-4">
-      <h2 class="page-heading">Una experiencia profesional pensada para la gestión de empleo</h2>
-      <p class="page-subtitle">
-        La plataforma permite autenticar usuarios, administrar perfiles, crear publicaciones de empleo y organizar
-        selecciones personalizadas desde un dashboard visual. Todo ello manteniendo una interfaz coherente, un estilo
-        tecnológico de alta legibilidad y una base funcional alineada con los requisitos del proyecto.
-      </p>
-    </section>
-
-    <!-- Tarjetas con propuesta de valor -->
-    <section class="row g-4 mb-4">
-      <div class="col-12 col-lg-4">
-        <article class="feature-card h-100">
-          <div class="card-icon">✦</div>
-          <h3>Gestión integral de publicaciones</h3>
-          <p>
-            Registra ofertas y demandas con información relevante, persistencia en IndexedDB y una presentación clara
-            para su consulta, seguimiento y eliminación.
-          </p>
-        </article>
-      </div>
-
-      <div class="col-12 col-lg-4">
-        <article class="feature-card h-100">
-          <div class="card-icon">◉</div>
-          <h3>Organización visual del talento</h3>
-          <p>
-            Selecciona publicaciones de forma intuitiva mediante filtros, doble clic y drag &amp; drop, conservando el
-            estado de trabajo del usuario entre recargas y sesiones locales.
-          </p>
-        </article>
-      </div>
-
-      <div class="col-12 col-lg-4">
-        <article class="feature-card h-100">
-          <div class="card-icon">▣</div>
-          <h3>Diseño moderno y navegación eficiente</h3>
-          <p>
-            La interfaz está diseñada para transmitir profesionalidad, innovación y legibilidad, favoreciendo una
-            experiencia más agradable, clara y robusta en el uso diario.
-          </p>
-        </article>
-      </div>
-    </section>
-
-    <!-- Flujo de trabajo -->
-    <section class="row g-4 mb-4">
-      <div class="col-12 col-lg-6">
-        <section class="process-card h-100">
-          <div class="section-heading-block">
-            <h2 class="section-title">Cómo funciona la plataforma</h2>
-            <p class="section-subtitle">
-              Un recorrido simple y lógico que conecta autenticación, gestión de datos y selección visual.
-            </p>
-          </div>
-
-          <div class="d-grid gap-3">
-            <div class="info-chip">1 · Accede con tus credenciales y consulta el estado de la sesión</div>
-            <div class="info-chip">2 · Da de alta usuarios y mantén actualizada la información registrada</div>
-            <div class="info-chip">3 · Crea ofertas o demandas y visualiza su distribución en el gráfico</div>
-            <div class="info-chip">4 · Organiza tu selección de publicaciones en el dashboard interactivo</div>
-          </div>
-        </section>
-      </div>
-
-      <div class="col-12 col-lg-6">
-        <section class="highlight-card h-100">
-          <div class="section-heading-block">
-            <h2 class="section-title">Tecnología aplicada al producto</h2>
-            <p class="section-subtitle">
-              El proyecto aprovecha APIs nativas del navegador para reforzar la interacción, la persistencia y la
-              modularidad del frontend.
-            </p>
-          </div>
-
-          <div class="row g-3">
-            <div class="col-12 col-md-6">
-              <article class="section-glass p-3 h-100">
-                <h3 class="h5 mb-2">WebStorage</h3>
-                <p class="mb-0 text-muted">Mantiene la sesión activa y almacena la información de usuarios con acceso rápido y local.</p>
-              </article>
-            </div>
-            <div class="col-12 col-md-6">
-              <article class="section-glass p-3 h-100">
-                <h3 class="h5 mb-2">IndexedDB</h3>
-                <p class="mb-0 text-muted">Persistencia estructurada para publicaciones y selección de elementos del dashboard.</p>
-              </article>
-            </div>
-            <div class="col-12 col-md-6">
-              <article class="section-glass p-3 h-100">
-                <h3 class="h5 mb-2">Canvas</h3>
-                <p class="mb-0 text-muted">Representación visual del volumen de ofertas y demandas con dibujo nativo en el navegador.</p>
-              </article>
-            </div>
-            <div class="col-12 col-md-6">
-              <article class="section-glass p-3 h-100">
-                <h3 class="h5 mb-2">Drag &amp; Drop</h3>
-                <p class="mb-0 text-muted">Selección interactiva de publicaciones para mejorar la experiencia y la productividad del usuario.</p>
-              </article>
-            </div>
-          </div>
-        </section>
-      </div>
-    </section>
-
-    <!-- CTA final -->
-    <section class="cta-panel text-center">
-      <div class="section-heading-block mb-3">
-        <h2 class="section-title">Empieza a trabajar con JobConnect</h2>
-        <p class="section-subtitle">
-          Accede a los distintos módulos de la aplicación y explora una solución web diseñada para gestionar talento,
-          oportunidades y procesos de selección con mayor claridad, control y valor visual.
+    <section class="landing-overview">
+      <div class="landing-overview-header">
+        <h2>Una plataforma web orientada a datos reales, control y experiencia profesional</h2>
+        <p>
+          El sistema combina un frontend modular con un backend GraphQL, persistencia en MongoDB, autenticación mediante
+          JWT y sincronización en tiempo real para ofrecer una experiencia coherente en todas las pantallas.
         </p>
       </div>
 
-      <div class="hero-actions mb-0">
-        <a href="usuarios.html" class="btn btn-outline-primary">Gestionar usuarios</a>
-        <a href="ofertas-demandas.html" class="btn btn-outline-primary">Gestionar publicaciones</a>
-        <a href="dashboard.html" class="btn btn-primary">Abrir dashboard</a>
+      <div class="landing-overview-grid">
+        <article class="landing-overview-card">
+          <h3>Gestión conectada</h3>
+          <p>
+            Usuarios, ofertas, demandas y selección activa se consultan desde el backend, evitando depender de datos
+            estáticos o simulados.
+          </p>
+        </article>
+
+        <article class="landing-overview-card">
+          <h3>Operaciones protegidas</h3>
+          <p>
+            Las acciones sensibles se ejecutan mediante mutaciones GraphQL protegidas por token de administrador.
+          </p>
+        </article>
+
+        <article class="landing-overview-card">
+          <h3>Tiempo real</h3>
+          <p>
+            Los cambios importantes se reflejan automáticamente en el dashboard y en las pantallas funcionales mediante
+            Socket.io.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="home-live-section">
+      <div class="home-section-header">
+        <h2>Actividad operativa en una sola vista</h2>
+        <p>
+      
+        </p>
+      </div>
+
+      <div class="live-layout">
+        <div class="live-console">
+          <div class="live-console-header">
+            <strong>Panel de estado JobConnect</strong>
+            <span class="live-status">Sistema conectado</span>
+          </div>
+
+          <div class="live-dashboard-grid">
+            <article class="live-kpi">
+              <span>Usuarios</span>
+              <strong>API</strong>
+              <small>Consulta desde backend</small>
+            </article>
+
+            <article class="live-kpi">
+              <span>Publicaciones</span>
+              <strong>DB</strong>
+              <small>Persistencia MongoDB</small>
+            </article>
+
+            <article class="live-kpi">
+              <span>Eventos</span>
+              <strong>LIVE</strong>
+              <small>Actualización Socket.io</small>
+            </article>
+          </div>
+
+          <div class="live-main-panel">
+            <div class="live-radar">
+              <div class="radar-core">JC</div>
+              <span class="radar-dot one"></span>
+              <span class="radar-dot two"></span>
+              <span class="radar-dot three"></span>
+            </div>
+
+            <div class="live-stream">
+              <div class="stream-row" style="--stream: 92%;">
+                <span>Login</span>
+                <div class="stream-bar"></div>
+                <strong>JWT</strong>
+              </div>
+
+              <div class="stream-row" style="--stream: 84%;">
+                <span>Usuarios</span>
+                <div class="stream-bar"></div>
+                <strong>GraphQL</strong>
+              </div>
+
+              <div class="stream-row" style="--stream: 76%;">
+                <span>Empleos</span>
+                <div class="stream-bar"></div>
+                <strong>MongoDB</strong>
+              </div>
+
+              <div class="stream-row" style="--stream: 88%;">
+                <span>Dashboard</span>
+                <div class="stream-bar"></div>
+                <strong>Socket.io</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="live-side">
+          <article class="live-side-card">
+            <h3>Lectura inmediata del sistema</h3>
+            <p>
+              El usuario entiende desde el inicio que la aplicación trabaja con datos reales, roles, publicaciones y
+              actualizaciones conectadas.
+            </p>
+          </article>
+
+          <article class="live-side-card">
+            <h3>Interfaz orientada a control</h3>
+            <p>
+              La experiencia no se basa solo en navegar: permite consultar, decidir, registrar, eliminar y seguir la
+              actividad desde una estructura clara.
+            </p>
+          </article>
+
+          <article class="live-side-card">
+            <h3>Producto preparado para crecer</h3>
+            <p>
+              La base técnica permite añadir nuevas vistas, reglas de negocio, paneles de análisis y funcionalidades de
+              selección sin rehacer la arquitectura.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-route-section">
+      <div class="home-section-header">
+        <h2>Un recorrido simple, lógico y verificable</h2>
+        <p>
+          JobConnect guía al usuario por un flujo completo: acceso seguro, gestión de información, selección de
+          publicaciones y actualización visual del estado de la plataforma.
+        </p>
+      </div>
+
+      <div class="route-board">
+        <article class="route-card">
+          <span class="route-number">01</span>
+          <h3>Acceso</h3>
+          <p>
+            Inicio de sesión con usuario normal o administrador, diferenciando permisos de consulta y acciones
+            protegidas.
+          </p>
+          <strong>Login</strong>
+        </article>
+
+        <article class="route-card">
+          <span class="route-number">02</span>
+          <h3>Gestión</h3>
+          <p>
+            Alta, búsqueda, filtrado y eliminación de usuarios o publicaciones desde pantallas limpias y estructuradas.
+          </p>
+          <strong>CRUD</strong>
+        </article>
+
+        <article class="route-card">
+          <span class="route-number">03</span>
+          <h3>Selección</h3>
+          <p>
+            Organización de publicaciones activas mediante interacción directa en el dashboard operativo.
+          </p>
+          <strong>Dashboard</strong>
+        </article>
+
+        <article class="route-card">
+          <span class="route-number">04</span>
+          <h3>Sincronización</h3>
+          <p>
+            Los cambios se reflejan entre módulos sin romper la navegación ni obligar al usuario a perder contexto.
+          </p>
+          <strong>Tiempo real</strong>
+        </article>
       </div>
     </section>
   </main>
 
   <footer>
     <div class="container text-center">
-      FULL STACK ATTACK · JobConnect · Producto 2
+      FULL STACK ATTACK · JobConnect · Producto 4
     </div>
   </footer>
 
-  <!-- Bootstrap JS para navbar responsive y otros componentes -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"></script>
 
-  <!-- Módulo UI para pintar el usuario activo y gestionar el cierre de sesión -->
   <script type="module">
-    import { inicializarAlmacenamiento } from "./assets/js/almacenaje.js";
     import { configurarBotonCerrarSesion, pintarUsuarioEnNavbar } from "./assets/js/ui.js";
 
-    window.addEventListener("DOMContentLoaded", async () => {
-      await inicializarAlmacenamiento();
+    window.addEventListener("DOMContentLoaded", () => {
       pintarUsuarioEnNavbar();
       configurarBotonCerrarSesion();
     });

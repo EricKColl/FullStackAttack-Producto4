@@ -5,13 +5,15 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-  "start": "node src/index.js",
-  "dev": "nodemon src/index.js",
-  "seed": "node src/seed/seed.js",
-  "check:usuario-mongoose": "node src/scripts/checkUsuarioMongoose.js",
-  "db:up": "docker compose up -d",
-  "db:down": "docker compose down",
-  "db:logs": "docker compose logs -f mongo"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "seed": "node src/seed/seed.js",
+    "check:usuario-mongoose": "node src/scripts/checkUsuarioMongoose.js",
+    "check:publicacion-mongoose": "node src/scripts/checkPublicacionMongoose.js",
+    "check:seleccionada-mongoose": "node src/scripts/checkSeleccionadaMongoose.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f mongo"
   },
   "keywords": [
     "fullstack",

@@ -1,27 +1,77 @@
 import {
-  anadirPublicacionSeleccionada,
-  inicializarAlmacenamiento,
-  listarPublicacionesDisponibles,
-  listarPublicacionesSeleccionadas,
-  obtenerResumenDashboard,
-  quitarPublicacionSeleccionada
-} from "./almacenaje.js";
+  graphqlRequest,
+  obtenerTokenAdminObligatorio
+} from "./api.js";
 import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
 
+const RESUMEN_DASHBOARD = `
+  query ResumenDashboard {
+    resumenDashboard {
+      totalOfertas
+      totalDemandas
+      totalUsuarios
+      totalSeleccionadas
+    }
+  }
+`;
+
+const LISTAR_PUBLICACIONES_DISPONIBLES = `
+  query ListarPublicacionesDisponibles {
+    listarPublicacionesDisponibles {
+      id
+      titulo
+      descripcion
+      tipo
+      categoria
+      autor
+      ubicacion
+      emailContacto
+      fecha
+    }
+  }
+`;
+
+const LISTAR_PUBLICACIONES_SELECCIONADAS = `
+  query ListarPublicacionesSeleccionadas {
+    listarPublicacionesSeleccionadas {
+      id
+      titulo
+      descripcion
+      tipo
+      categoria
+      autor
+      ubicacion
+      emailContacto
+      fecha
+    }
+  }
+`;
+
+const ANADIR_SELECCIONADA = `
+  mutation AnadirSeleccionada($idPublicacion: ID!) {
+    anadirSeleccionada(idPublicacion: $idPublicacion) {
+      id
+      titulo
+    }
+  }
+`;
+
+const QUITAR_SELECCIONADA = `
+  mutation QuitarSeleccionada($idPublicacion: ID!) {
+    quitarSeleccionada(idPublicacion: $idPublicacion) {
+      id
+      titulo
+    }
+  }
+`;
+
 /*
-  Clave usada en localStorage para recordar qué filtro del dashboard
-  estaba activo la última vez.
+  Clave usada para recordar el filtro del dashboard.
 */
 const CLAVE_FILTRO_DASHBOARD = "jobconnect_dashboard_filtro";
 
 /*
-  Referencias a elementos del HTML que vamos a usar en el dashboard.
-
-  Estos cuatro muestran los números del resumen superior:
-  - total de ofertas
-  - total de demandas
-  - total de usuarios
-  - total de seleccionadas
+  Elementos de resumen.
 */
 const totalOfertasElemento = document.getElementById("total-ofertas");
 const totalDemandasElemento = document.getElementById("total-demandas");
@@ -29,53 +79,93 @@ const totalUsuariosElemento = document.getElementById("total-usuarios");
 const totalSeleccionadasElemento = document.getElementById("total-seleccionadas");
 
 /*
-  Estos son los contenedores internos donde pintamos las tarjetas:
-  - publicaciones disponibles
-  - publicaciones seleccionadas
+  Contenedores principales.
 */
 const contenedorDisponibles = document.getElementById("contenedor-publicaciones");
 const contenedorSeleccionadas = document.getElementById("contenedor-seleccionadas");
 
-/*
-  closest(".drop-zone") busca el ancestro más cercano que tenga la clase .drop-zone.
-
-  Esto es importante porque el drag and drop se apoya en la zona visual completa,
-  no solo en el contenedor interno de tarjetas.
-*/
 const zonaDisponibles = contenedorDisponibles.closest(".drop-zone");
 const zonaSeleccionadas = contenedorSeleccionadas.closest(".drop-zone");
 
 /*
-  Elemento donde mostraremos mensajes de éxito o error.
+  Elementos auxiliares.
 */
 const mensajeDashboard = document.getElementById("mensaje-dashboard");
-
-/*
-  Lista de botones de filtro.
-*/
+const estadoDashboard = document.getElementById("estado-dashboard");
+const contadorDisponibles = document.getElementById("contador-disponibles");
+const contadorSeleccionadas = document.getElementById("contador-seleccionadas");
 const botonesFiltro = document.querySelectorAll("[data-filtro]");
 
 /*
-  Guarda qué filtro está activo en este momento.
+  Estado local.
 */
 let filtroActual = "todas";
+let publicacionesDisponiblesCache = [];
+let publicacionesSeleccionadasCache = [];
+let socketDashboard = null;
+let refrescoDashboardTimeoutId = null;
+
+async function cargarResumenDashboard() {
+  const data = await graphqlRequest(RESUMEN_DASHBOARD);
+  return data.resumenDashboard;
+}
+
+async function cargarPublicacionesDisponibles() {
+  const data = await graphqlRequest(LISTAR_PUBLICACIONES_DISPONIBLES);
+  return data.listarPublicacionesDisponibles;
+}
+
+async function cargarPublicacionesSeleccionadas() {
+  const data = await graphqlRequest(LISTAR_PUBLICACIONES_SELECCIONADAS);
+  return data.listarPublicacionesSeleccionadas;
+}
+
+async function anadirSeleccionadaBackend(idPublicacion) {
+  const token = obtenerTokenAdminObligatorio();
+
+  const data = await graphqlRequest(
+    ANADIR_SELECCIONADA,
+    { idPublicacion: String(idPublicacion) },
+    token
+  );
+
+  return data.anadirSeleccionada;
+}
+
+async function quitarSeleccionadaBackend(idPublicacion) {
+  const token = obtenerTokenAdminObligatorio();
+
+  const data = await graphqlRequest(
+    QUITAR_SELECCIONADA,
+    { idPublicacion: String(idPublicacion) },
+    token
+  );
+
+  return data.quitarSeleccionada;
+}
 
 /*
   Función principal de arranque del dashboard.
 */
 async function inicializarDashboard() {
-  await inicializarAlmacenamiento();
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
   recuperarFiltroGuardado();
   actualizarEstadoVisualFiltros();
   configurarFiltros();
   configurarZonasDrop();
-  await repintarDashboard();
+  configurarSocketDashboard();
+
+  try {
+    await repintarDashboard();
+  } catch (error) {
+    mostrarAlerta(mensajeDashboard, error.message, "danger", 0);
+    actualizarEstadoDashboard("No se pudo cargar la información del dashboard.");
+  }
 }
 
 /*
-  Recupera desde localStorage el último filtro usado por el usuario.
+  Recupera el filtro guardado.
 */
 function recuperarFiltroGuardado() {
   const filtroGuardado = localStorage.getItem(CLAVE_FILTRO_DASHBOARD);
@@ -90,10 +180,66 @@ function recuperarFiltroGuardado() {
 }
 
 /*
-  Guarda en localStorage el filtro actual del dashboard.
+  Guarda el filtro actual.
 */
 function guardarFiltroActual() {
   localStorage.setItem(CLAVE_FILTRO_DASHBOARD, filtroActual);
+}
+
+/*
+  Actualiza el texto de estado general.
+*/
+function actualizarEstadoDashboard(texto) {
+  if (!estadoDashboard) {
+    return;
+  }
+
+  estadoDashboard.textContent = texto;
+}
+
+/*
+  Programa un repintado evitando llamadas duplicadas por eventos Socket.io seguidos.
+*/
+function programarRepintadoDashboard() {
+  if (refrescoDashboardTimeoutId) {
+    window.clearTimeout(refrescoDashboardTimeoutId);
+  }
+
+  refrescoDashboardTimeoutId = window.setTimeout(async () => {
+    try {
+      await repintarDashboard();
+    } catch (error) {
+      mostrarAlerta(mensajeDashboard, error.message, "danger");
+    }
+  }, 120);
+}
+
+/*
+  Configura Socket.io para actualizar el dashboard en tiempo real.
+*/
+function configurarSocketDashboard() {
+  if (typeof window.io !== "function") {
+    actualizarEstadoDashboard("Socket.io no está disponible. El dashboard funcionará con actualización manual.");
+    return;
+  }
+
+  if (socketDashboard) {
+    return;
+  }
+
+  socketDashboard = window.io("http://localhost:4000");
+
+  socketDashboard.on("connect", () => {
+    actualizarEstadoDashboard("Dashboard conectado en tiempo real.");
+  });
+
+  socketDashboard.on("disconnect", () => {
+    actualizarEstadoDashboard("Conexión en tiempo real interrumpida. Revisa el backend.");
+  });
+
+  socketDashboard.on("dashboard:actualizado", programarRepintadoDashboard);
+  socketDashboard.on("publicaciones:actualizadas", programarRepintadoDashboard);
+  socketDashboard.on("seleccionadas:actualizadas", programarRepintadoDashboard);
 }
 
 /*
@@ -105,13 +251,18 @@ function configurarFiltros() {
       filtroActual = boton.dataset.filtro;
       guardarFiltroActual();
       actualizarEstadoVisualFiltros();
-      await pintarTarjetas();
+
+      try {
+        pintarTarjetas();
+      } catch (error) {
+        mostrarAlerta(mensajeDashboard, error.message, "danger");
+      }
     });
   });
 }
 
 /*
-  Cambia el estilo de los botones según cuál está activo.
+  Cambia el estilo de los botones según el filtro activo.
 */
 function actualizarEstadoVisualFiltros() {
   botonesFiltro.forEach((boton) => {
@@ -126,7 +277,7 @@ function actualizarEstadoVisualFiltros() {
 }
 
 /*
-  Configura el comportamiento drag and drop de las dos zonas.
+  Configura drag and drop en ambas columnas.
 */
 function configurarZonasDrop() {
   [zonaDisponibles, zonaSeleccionadas].forEach((zona) => {
@@ -145,10 +296,15 @@ function configurarZonasDrop() {
   zonaDisponibles.addEventListener("drop", async (evento) => {
     evento.preventDefault();
     zonaDisponibles.classList.remove("drop-zone-activa");
+
     const id = evento.dataTransfer.getData("text/plain");
 
+    if (!id) {
+      return;
+    }
+
     try {
-      await quitarPublicacionSeleccionada(id);
+      await quitarSeleccionadaBackend(id);
       await repintarDashboard();
       mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado general.", "success");
     } catch (error) {
@@ -159,10 +315,15 @@ function configurarZonasDrop() {
   zonaSeleccionadas.addEventListener("drop", async (evento) => {
     evento.preventDefault();
     zonaSeleccionadas.classList.remove("drop-zone-activa");
+
     const id = evento.dataTransfer.getData("text/plain");
 
+    if (!id) {
+      return;
+    }
+
     try {
-      await anadirPublicacionSeleccionada(id);
+      await anadirSeleccionadaBackend(id);
       await repintarDashboard();
       mostrarAlerta(mensajeDashboard, "Publicación añadida a la selección del usuario.", "success");
     } catch (error) {
@@ -172,11 +333,23 @@ function configurarZonasDrop() {
 }
 
 /*
+  Normaliza valores para mostrarlos de forma segura.
+*/
+function escaparHTML(valor) {
+  return String(valor ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+/*
   Mueve una publicación al bloque de seleccionadas usando doble clic.
 */
 async function moverASeleccionadas(idPublicacion) {
   try {
-    await anadirPublicacionSeleccionada(idPublicacion);
+    await anadirSeleccionadaBackend(idPublicacion);
     await repintarDashboard();
     mostrarAlerta(mensajeDashboard, "Publicación añadida a la selección del usuario.", "success");
   } catch (error) {
@@ -186,14 +359,10 @@ async function moverASeleccionadas(idPublicacion) {
 
 /*
   Devuelve una publicación al bloque de disponibles.
-
-  Esta función se reutiliza en dos acciones distintas:
-  - doble clic sobre una tarjeta seleccionada
-  - botón con X dentro de la propia tarjeta seleccionada
 */
 async function moverADisponibles(idPublicacion) {
   try {
-    await quitarPublicacionSeleccionada(idPublicacion);
+    await quitarSeleccionadaBackend(idPublicacion);
     await repintarDashboard();
     mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado general.", "success");
   } catch (error) {
@@ -205,17 +374,24 @@ async function moverADisponibles(idPublicacion) {
   Repinta todo el dashboard.
 */
 async function repintarDashboard() {
-  await pintarResumen();
-  await pintarTarjetas();
+  const [resumen, disponibles, seleccionadas] = await Promise.all([
+    cargarResumenDashboard(),
+    cargarPublicacionesDisponibles(),
+    cargarPublicacionesSeleccionadas()
+  ]);
+
+  publicacionesDisponiblesCache = disponibles;
+  publicacionesSeleccionadasCache = seleccionadas;
+
+  pintarResumen(resumen);
+  pintarTarjetas();
+  actualizarEstadoDashboard("Datos sincronizados con el backend y actualizados en tiempo real.");
 }
 
 /*
-  Pide el resumen al módulo de almacenamiento
-  y coloca cada dato en su elemento HTML correspondiente.
+  Pinta los KPIs superiores.
 */
-async function pintarResumen() {
-  const resumen = await obtenerResumenDashboard();
-
+function pintarResumen(resumen) {
   totalOfertasElemento.textContent = resumen.totalOfertas;
   totalDemandasElemento.textContent = resumen.totalDemandas;
   totalUsuariosElemento.textContent = resumen.totalUsuarios;
@@ -223,33 +399,85 @@ async function pintarResumen() {
 }
 
 /*
-  Pinta las tarjetas de ambas zonas.
+  Devuelve las publicaciones disponibles según el filtro activo.
 */
-async function pintarTarjetas() {
-  const publicacionesDisponibles = await listarPublicacionesDisponibles();
-  const publicacionesSeleccionadas = await listarPublicacionesSeleccionadas();
-
-  const disponiblesFiltradas = publicacionesDisponibles.filter((publicacion) => {
+function obtenerDisponiblesFiltradas() {
+  return publicacionesDisponiblesCache.filter((publicacion) => {
     if (filtroActual === "todas") {
       return true;
     }
 
     return publicacion.tipo === filtroActual;
   });
+}
+
+/*
+  Actualiza los contadores internos de cada columna.
+*/
+function actualizarContadoresColumnas(disponiblesFiltradas, seleccionadas) {
+  if (contadorDisponibles) {
+    const textoFiltro = filtroActual === "todas"
+      ? "disponibles"
+      : `${filtroActual === "oferta" ? "ofertas" : "demandas"} visibles`;
+
+    contadorDisponibles.textContent = `${disponiblesFiltradas.length} ${textoFiltro}`;
+  }
+
+  if (contadorSeleccionadas) {
+    contadorSeleccionadas.textContent = `${seleccionadas.length} seleccionadas`;
+  }
+}
+
+/*
+  Pinta las tarjetas de ambas zonas.
+*/
+function pintarTarjetas() {
+  const disponiblesFiltradas = obtenerDisponiblesFiltradas();
+
+  actualizarContadoresColumnas(disponiblesFiltradas, publicacionesSeleccionadasCache);
 
   renderizarTarjetas(
     contenedorDisponibles,
     disponiblesFiltradas,
-    "No hay publicaciones disponibles en este bloque.",
+    obtenerTextoVacioDisponibles(),
     "disponibles"
   );
 
   renderizarTarjetas(
     contenedorSeleccionadas,
-    publicacionesSeleccionadas,
-    "Arrastra aquí las publicaciones que quieras guardar.",
+    publicacionesSeleccionadasCache,
+    "Todavía no hay publicaciones seleccionadas. Arrastra aquí una tarjeta o usa doble clic sobre una publicación disponible.",
     "seleccionadas"
   );
+}
+
+/*
+  Texto de estado vacío según el filtro activo.
+*/
+function obtenerTextoVacioDisponibles() {
+  if (filtroActual === "oferta") {
+    return "No hay ofertas disponibles con el filtro actual.";
+  }
+
+  if (filtroActual === "demanda") {
+    return "No hay demandas disponibles con el filtro actual.";
+  }
+
+  return "No hay publicaciones disponibles en este momento.";
+}
+
+/*
+  Renderiza un estado vacío más integrado que una alerta simple.
+*/
+function renderizarEstadoVacio(contenedor, texto) {
+  contenedor.innerHTML = `
+    <div class="col-12">
+      <div class="section-glass p-4 text-center">
+        <h3 class="h5 mb-2">Sin resultados</h3>
+        <p class="text-muted mb-0">${escaparHTML(texto)}</p>
+      </div>
+    </div>
+  `;
 }
 
 /*
@@ -257,11 +485,7 @@ async function pintarTarjetas() {
 */
 function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
   if (publicaciones.length === 0) {
-    contenedor.innerHTML = `
-      <div class="col-12">
-        <div class="alert alert-secondary mb-0">${textoVacio}</div>
-      </div>
-    `;
+    renderizarEstadoVacio(contenedor, textoVacio);
     return;
   }
 
@@ -285,21 +509,34 @@ function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
       : "";
 
     columna.innerHTML = `
-      <article class="card card-publicacion h-100 tarjeta-arrastrable" draggable="true" data-id="${publicacion.id}">
+      <article class="card card-publicacion h-100 tarjeta-arrastrable" draggable="true" data-id="${escaparHTML(publicacion.id)}">
         <div class="card-body position-relative">
           <div class="d-flex justify-content-between align-items-start gap-2 mb-2 flex-wrap tarjeta-cabecera-publicacion">
-            <div class="d-flex align-items-start gap-2 flex-wrap pe-4">
-              <span class="badge ${badgeClase}">${capitalizarTexto(publicacion.tipo)}</span>
-              <small class="text-muted">${publicacion.fecha}</small>
+            <div class="d-flex align-items-center gap-2 flex-wrap pe-4">
+              <span class="badge ${badgeClase}">${escaparHTML(capitalizarTexto(publicacion.tipo))}</span>
+              <small class="text-muted">${escaparHTML(publicacion.fecha)}</small>
             </div>
             ${botonQuitarSeleccion}
           </div>
-          <h3 class="h5">${publicacion.titulo}</h3>
-          <p class="mb-2"><strong>Categoría:</strong> ${publicacion.categoria}</p>
-          <p class="mb-2"><strong>Autor:</strong> ${publicacion.autor}</p>
-          <p class="mb-2"><strong>Ubicación:</strong> ${publicacion.ubicacion}</p>
-          <p class="mb-2"><strong>Contacto:</strong> ${publicacion.emailContacto}</p>
-          <p class="mb-0 text-muted">${publicacion.descripcion}</p>
+
+          <h3 class="h5">${escaparHTML(publicacion.titulo)}</h3>
+
+          <div class="row g-2 mb-2">
+            <div class="col-12 col-md-6">
+              <p class="mb-1"><strong>Categoría:</strong> ${escaparHTML(publicacion.categoria)}</p>
+            </div>
+            <div class="col-12 col-md-6">
+              <p class="mb-1"><strong>Ubicación:</strong> ${escaparHTML(publicacion.ubicacion)}</p>
+            </div>
+            <div class="col-12">
+              <p class="mb-1"><strong>Autor:</strong> ${escaparHTML(publicacion.autor)}</p>
+            </div>
+            <div class="col-12">
+              <p class="mb-1"><strong>Contacto:</strong> ${escaparHTML(publicacion.emailContacto)}</p>
+            </div>
+          </div>
+
+          <p class="mb-0 text-muted">${escaparHTML(publicacion.descripcion)}</p>
         </div>
       </article>
     `;
