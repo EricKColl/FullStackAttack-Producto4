@@ -2,7 +2,62 @@
 <html lang="es">
 
 <head>
-  <!-- Configuración básica del documento -->
+      <style id="jc-nav-boot-style">
+    html.jc-nav-boot:not(.jc-nav-ready) body {
+      visibility: hidden !important;
+    }
+  </style>
+
+  <script id="jc-nav-boot">
+    (function () {
+      document.documentElement.classList.add("jc-nav-boot");
+
+      /*
+        Fallback de seguridad:
+        si por cualquier motivo el módulo JS no llega a marcar la navbar como preparada,
+        se muestra la página igualmente para no dejar la pantalla en blanco.
+      */
+      window.setTimeout(function () {
+        document.documentElement.classList.add("jc-nav-ready");
+      }, 1400);
+    })();
+  </script>
+
+<script id="jc-role-preload">
+    (function () {
+      const USUARIO_STORAGE_KEY = "jobconnect_usuario";
+      const roles = ["jc-role-admin", "jc-role-empresa", "jc-role-candidato", "jc-role-sin-sesion"];
+
+      function aplicarRol(rol) {
+        document.documentElement.classList.remove(...roles);
+
+        const rolSeguro = String(rol || "").trim().toLowerCase();
+
+        if (rolSeguro === "admin" || rolSeguro === "empresa" || rolSeguro === "candidato") {
+          document.documentElement.classList.add("jc-role-" + rolSeguro);
+          return;
+        }
+
+        document.documentElement.classList.add("jc-role-sin-sesion");
+      }
+
+      try {
+        const textoUsuario = localStorage.getItem(USUARIO_STORAGE_KEY);
+
+        if (!textoUsuario) {
+          aplicarRol("sin-sesion");
+          return;
+        }
+
+        const usuario = JSON.parse(textoUsuario);
+        aplicarRol(usuario && usuario.rol ? usuario.rol : "sin-sesion");
+      } catch (error) {
+        aplicarRol("sin-sesion");
+      }
+    })();
+  </script>
+
+<!-- Configuración básica del documento -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -572,15 +627,23 @@
 
       <div class="collapse navbar-collapse" id="navbarInicio">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
-          <li class="nav-item"><a class="nav-link" href="login.html">Login</a></li>
-          <li class="nav-item"><a class="nav-link" href="ofertas-demandas.html">Ofertas/Demandas</a></li>
-          <li class="nav-item"><a class="nav-link" href="usuarios.html">Usuarios</a></li>
+          <li class="nav-item">
+            <a class="nav-link" href="dashboard.html">Dashboard</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="ofertas-demandas.html">Ofertas/Demandas</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="usuarios.html">Usuarios</a>
+          </li>
         </ul>
 
-        <div class="d-flex align-items-center gap-2">
-          <span class="navbar-text" id="usuarioActivo">Usuario activo: -no login-</span>
-          <button id="btn-cerrar-sesion" class="btn btn-sm btn-outline-light d-none" type="button">
+        <div class="d-flex align-items-center gap-2 session-actions">
+          <a class="nav-link session-login-link" href="login.html">Login</a>
+
+          <span class="navbar-text usuario-sesion-navbar d-none" id="usuarioActivo"></span>
+
+          <button id="btn-cerrar-sesion" class="btn btn-sm btn-outline-light session-button-hidden" type="button">
             Cerrar sesión
           </button>
         </div>
@@ -588,51 +651,7 @@
     </div>
   </nav>
 
-  <script>
-    (function () {
-      const usuarioActivo = document.getElementById("usuarioActivo");
-      const botonCerrarSesion = document.getElementById("btn-cerrar-sesion");
-
-      if (!usuarioActivo || !botonCerrarSesion) {
-        return;
-      }
-
-      try {
-        const textoUsuario = localStorage.getItem("jobconnect_usuario");
-        const usuario = textoUsuario ? JSON.parse(textoUsuario) : null;
-
-        if (usuario && usuario.nombre && usuario.apellidos) {
-          const texto = "Usuario activo: " + usuario.nombre + " " + usuario.apellidos;
-
-          usuarioActivo.textContent = texto;
-          usuarioActivo.title = texto;
-
-          botonCerrarSesion.classList.remove("d-none");
-          botonCerrarSesion.classList.remove("session-button-hidden");
-          botonCerrarSesion.setAttribute("aria-hidden", "false");
-          botonCerrarSesion.tabIndex = 0;
-        } else {
-          usuarioActivo.textContent = "Usuario activo: -no login-";
-          usuarioActivo.title = "Usuario activo: -no login-";
-
-          botonCerrarSesion.classList.remove("d-none");
-          botonCerrarSesion.classList.add("session-button-hidden");
-          botonCerrarSesion.setAttribute("aria-hidden", "true");
-          botonCerrarSesion.tabIndex = -1;
-        }
-      } catch (error) {
-        usuarioActivo.textContent = "Usuario activo: -no login-";
-        usuarioActivo.title = "Usuario activo: -no login-";
-
-        botonCerrarSesion.classList.remove("d-none");
-        botonCerrarSesion.classList.add("session-button-hidden");
-        botonCerrarSesion.setAttribute("aria-hidden", "true");
-        botonCerrarSesion.tabIndex = -1;
-      }
-    })();
-  </script>
-
-  <main class="container py-4">
+<main class="container py-4">
     <section class="landing-hero">
       <h1>
         Plataforma FullStack para conectar talento, empresas y oportunidades laborales
@@ -644,8 +663,8 @@
       </p>
 
       <div class="landing-actions">
-        <a href="login.html" class="btn btn-primary btn-lg">Iniciar sesión</a>
-        <a href="dashboard.html" class="btn btn-outline-primary btn-lg">Ver dashboard</a>
+        <a href="login.html" class="btn btn-primary btn-lg home-guest-only">Iniciar sesión</a>
+        <a href="dashboard.html" class="btn btn-outline-primary btn-lg home-auth-only">Ver dashboard</a>
       </div>
 
       <div class="landing-tech-row">

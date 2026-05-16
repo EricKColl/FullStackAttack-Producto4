@@ -1,23 +1,15 @@
 /**
  * @file src/graphql/resolvers/seleccionadaResolver.js
- * @description Resolvers GraphQL para las publicaciones seleccionadas
- *              y el resumen del dashboard.
+ * @description Resolvers GraphQL para publicaciones seleccionadas y dashboard.
  *
- * Cubre toda la lógica del panel de drag & drop del Producto 2:
- *   - qué hay seleccionado ahora mismo
- *   - qué queda disponible para arrastrar
- *   - añadir o quitar publicaciones del panel
- *   - obtener los totales que pintan las cajitas del dashboard
- *
- * Siguiendo el patrón "thin resolver / fat model", aquí solo adaptamos
- * argumentos y delegamos en seleccionadaModel.
- *
- * En la Fase 5 protegemos las mutations sensibles con JWT:
- * - anadirSeleccionada requiere administrador autenticado.
- * - quitarSeleccionada requiere administrador autenticado.
+ * Producto 4:
+ * - Las consultas del dashboard siguen disponibles para pintar datos reales.
+ * - Las acciones de selección ya no son exclusivas del administrador.
+ * - Cualquier usuario autenticado con JWT puede añadir o quitar seleccionadas.
+ * - Socket.io sigue notificando los cambios en tiempo real.
  */
 
-import { requireAdmin } from '../../middleware/auth.js';
+import { requireAuth } from '../../middleware/auth.js';
 import * as seleccionadaModel from '../../models/seleccionadaModel.js';
 import {
   emitirDashboardActualizado,
@@ -27,8 +19,7 @@ import {
 export const seleccionadaResolver = {
   Query: {
     /**
-     * Devuelve solo los ids de las publicaciones seleccionadas.
-     * Esta query se mantiene pública porque solo lee datos.
+     * Devuelve los ids de las publicaciones seleccionadas.
      */
     idsSeleccionados: () => {
       return seleccionadaModel.listarIdsSeleccionados();
@@ -36,23 +27,20 @@ export const seleccionadaResolver = {
 
     /**
      * Devuelve las publicaciones seleccionadas como objetos completos.
-     * Esta query se mantiene pública porque solo lee datos.
      */
     listarPublicacionesSeleccionadas: () => {
       return seleccionadaModel.listarPublicacionesSeleccionadas();
     },
 
     /**
-     * Devuelve las publicaciones que aún no están seleccionadas.
-     * Esta query se mantiene pública porque solo lee datos.
+     * Devuelve las publicaciones que todavía no están seleccionadas.
      */
     listarPublicacionesDisponibles: () => {
       return seleccionadaModel.listarPublicacionesDisponibles();
     },
 
     /**
-     * Devuelve el resumen numérico del dashboard (4 totales).
-     * Esta query se mantiene pública porque solo lee datos.
+     * Devuelve el resumen numérico general del dashboard.
      */
     resumenDashboard: () => {
       return seleccionadaModel.obtenerResumenDashboard();
@@ -63,17 +51,22 @@ export const seleccionadaResolver = {
     /**
      * Añade una publicación al panel de seleccionadas.
      *
-     * Fase 5:
-     * Esta mutation queda protegida. Solo un administrador autenticado
-     * mediante JWT puede modificar las publicaciones seleccionadas.
+     * Requiere sesión iniciada:
+     * - admin puede usarlo desde visión global.
+     * - empresa puede usarlo desde su panel de empresa.
+     * - candidato puede usarlo desde su panel de candidato.
      *
      * @param {unknown} _parent
      * @param {{idPublicacion: string}} args
      * @param {{usuario: object|null}} context
      */
     anadirSeleccionada: async (_parent, args, context) => {
-      requireAdmin(context);
-      const seleccionada = await seleccionadaModel.anadirSeleccionada(args.idPublicacion);
+      requireAuth(context);
+
+      const seleccionada = await seleccionadaModel.anadirSeleccionada(
+        args.idPublicacion
+      );
+
       emitirDashboardActualizado();
       emitirSeleccionadasActualizadas();
 
@@ -83,17 +76,19 @@ export const seleccionadaResolver = {
     /**
      * Quita una publicación del panel de seleccionadas.
      *
-     * Fase 5:
-     * Esta mutation queda protegida. Solo un administrador autenticado
-     * mediante JWT puede modificar las publicaciones seleccionadas.
+     * Requiere sesión iniciada.
      *
      * @param {unknown} _parent
      * @param {{idPublicacion: string}} args
      * @param {{usuario: object|null}} context
      */
     quitarSeleccionada: async (_parent, args, context) => {
-      requireAdmin(context);
-      const seleccionada = await seleccionadaModel.quitarSeleccionada(args.idPublicacion);
+      requireAuth(context);
+
+      const seleccionada = await seleccionadaModel.quitarSeleccionada(
+        args.idPublicacion
+      );
+
       emitirDashboardActualizado();
       emitirSeleccionadasActualizadas();
 

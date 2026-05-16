@@ -1,21 +1,11 @@
 /**
  * @file src/graphql/resolvers/usuarioResolver.js
- * @description Resolvers GraphQL para la entidad Usuario.
+ * @description Resolvers GraphQL para usuarios y autenticación.
  *
- * Cada función aquí se corresponde con una Query o Mutation declarada
- * en src/graphql/typeDefs.js. Los resolvers son delgados a propósito:
- * delegan toda la lógica de normalización, validación y persistencia
- * al model (src/models/usuarioModel.js).
- *
- * En la Fase 5 añadimos la autenticación de administrador con JWT:
- * - loginAdmin valida credenciales mediante el model.
- * - Si el usuario es admin, se genera un token JWT.
- * - El cliente podrá usar ese token en el header Authorization.
- * - Las mutations sensibles quedan protegidas con requireAdmin(context).
- *
- * Si un model lanza un AppError (ValidationError, NotFoundError, etc.),
- * Apollo Server lo atrapa y lo transforma automáticamente en una respuesta
- * GraphQL con el campo `errors` poblado, incluyendo code y message.
+ * Producto 4:
+ * - Todos los usuarios autenticados reciben JWT.
+ * - El administrador mantiene acceso completo.
+ * - Empresa y candidato reciben token para que el backend pueda aplicar permisos por rol.
  */
 
 import jwt from 'jsonwebtoken';
@@ -25,20 +15,19 @@ import { requireAdmin } from '../../middleware/auth.js';
 import * as usuarioModel from '../../models/usuarioModel.js';
 
 /**
- * Genera un token JWT para el usuario administrador autenticado.
+ * Genera un token JWT para cualquier usuario autenticado.
  *
- * El token incluye información mínima:
- * - sub: id del usuario, definido en la opción subject.
- * - email: correo del usuario.
- * - rol: rol del usuario.
+ * El token incluye:
+ * - sub: id del usuario.
+ * - email: correo.
+ * - rol: admin, empresa o candidato.
  *
- * Importante:
- * El token no guarda la contraseña ni información sensible.
+ * No guarda contraseña ni datos sensibles.
  *
- * @param {object} usuario - Usuario administrador autenticado.
- * @returns {string} Token JWT firmado.
+ * @param {object} usuario
+ * @returns {string}
  */
-function generarTokenAdmin(usuario) {
+function generarTokenUsuario(usuario) {
   return jwt.sign(
     {
       email: usuario.email,
@@ -52,25 +41,42 @@ function generarTokenAdmin(usuario) {
   );
 }
 
+/**
+ * Construye la respuesta estándar de autenticación.
+ *
+ * @param {object} usuario
+ * @returns {{token: string, usuario: object}}
+ */
+function crearAuthPayload(usuario) {
+  return {
+    token: generarTokenUsuario(usuario),
+    usuario,
+  };
+}
+
 export const usuarioResolver = {
   Query: {
     /**
-     * Lista todos los usuarios ordenados alfabéticamente.
-     * No requiere argumentos.
+     * Lista todos los usuarios.
      *
-     * Esta query se mantiene pública porque solo devuelve datos básicos
-     * y nunca expone contraseñas.
+     * Ahora queda protegido a nivel servidor:
+     * solo el administrador puede ver el listado completo.
+     *
+     * @param {unknown} _parent
+     * @param {unknown} _args
+     * @param {{usuario: object|null}} context
      */
-    listarUsuarios: () => {
+    listarUsuarios: (_parent, _args, context) => {
+      requireAdmin(context);
+
       return usuarioModel.listarUsuarios();
     },
 
     /**
-     * Busca un usuario por email. Devuelve null si no existe
-     * (GraphQL permite null porque el campo `usuarioPorEmail: Usuario`
-     *  no lleva el signo de exclamación).
+     * Busca un usuario por email.
      *
-     * Esta query se mantiene pública por compatibilidad con el proyecto actual.
+     * Se mantiene disponible por compatibilidad con el proyecto,
+     * aunque la pantalla de gestión completa queda reservada al admin.
      *
      * @param {unknown} _parent
      * @param {{email: string}} args
@@ -83,10 +89,7 @@ export const usuarioResolver = {
   Mutation: {
     /**
      * Crea un usuario nuevo.
-     *
-     * Fase 5:
-     * Esta mutation queda protegida. Solo un administrador autenticado
-     * mediante JWT puede crear usuarios.
+     * Solo el administrador puede hacerlo.
      *
      * @param {unknown} _parent
      * @param {{datos: object}} args
@@ -99,11 +102,8 @@ export const usuarioResolver = {
     },
 
     /**
-     * Elimina un usuario por email. Devuelve el usuario eliminado.
-     *
-     * Fase 5:
-     * Esta mutation queda protegida. Solo un administrador autenticado
-     * mediante JWT puede eliminar usuarios.
+     * Elimina un usuario por email.
+     * Solo el administrador puede hacerlo.
      *
      * @param {unknown} _parent
      * @param {{email: string}} args
@@ -116,42 +116,39 @@ export const usuarioResolver = {
     },
 
     /**
-     * Autentica a un usuario por email + password.
-     * Devuelve el usuario sin password si las credenciales coinciden.
+     * Login general de la aplicación.
      *
-     * Se mantiene por compatibilidad con el trabajo previo.
-     * Para la autenticación segura de administrador se usa loginAdmin.
+     * Sirve para:
+     * - admin
+     * - empresa
+     * - candidato
+     *
+     * Devuelve siempre:
+     * - token JWT
+     * - usuario autenticado
      *
      * @param {unknown} _parent
      * @param {{email: string, password: string}} args
      */
-    loguearUsuario: (_parent, args) => {
-      return usuarioModel.loguearUsuario(args.email, args.password);
+    loguearUsuario: async (_parent, args) => {
+      const usuario = await usuarioModel.loguearUsuario(args.email, args.password);
+
+      return crearAuthPayload(usuario);
     },
 
     /**
-     * Autentica al administrador y devuelve un token JWT.
+     * Login específico de administrador.
      *
-     * Flujo:
-     * 1. El model comprueba email, password y rol admin.
-     * 2. Si todo es correcto, el resolver genera un token JWT.
-     * 3. Devuelve el token y los datos públicos del usuario.
-     *
-     * Esta mutation NO se protege con requireAdmin porque precisamente
-     * sirve para conseguir el token inicial.
+     * Se conserva para compatibilidad con las pruebas anteriores.
+     * Si el usuario no es admin, el model lanza UnauthorizedError.
      *
      * @param {unknown} _parent
      * @param {{email: string, password: string}} args
-     * @returns {Promise<{token: string, usuario: object}>}
      */
     loginAdmin: async (_parent, args) => {
       const usuario = await usuarioModel.loginAdmin(args.email, args.password);
-      const token = generarTokenAdmin(usuario);
 
-      return {
-        token,
-        usuario,
-      };
+      return crearAuthPayload(usuario);
     },
   },
 };
