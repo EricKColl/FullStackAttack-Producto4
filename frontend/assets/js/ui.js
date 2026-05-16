@@ -6,20 +6,131 @@ import { borrarToken, borrarUsuarioAutenticado, obtenerUsuarioAutenticado } from
 const DURACION_ALERTA_POR_DEFECTO = 4000;
 
 /*
+  Roles funcionales de la aplicación.
+*/
+const ROL_ADMIN = "admin";
+const ROL_EMPRESA = "empresa";
+const ROL_CANDIDATO = "candidato";
+
+/*
+  Normaliza el rol para evitar errores por mayúsculas, espacios o valores nulos.
+*/
+function normalizarRol(rol) {
+  return String(rol || "").trim().toLowerCase();
+}
+
+/*
+  Devuelve el usuario activo guardado en localStorage o null si no existe.
+*/
+export function obtenerUsuarioActivo() {
+  return obtenerUsuarioAutenticado();
+}
+
+/*
+  Devuelve el rol del usuario activo.
+*/
+export function obtenerRolUsuarioActivo() {
+  const usuarioActivo = obtenerUsuarioAutenticado();
+
+  if (!usuarioActivo) {
+    return null;
+  }
+
+  return normalizarRol(usuarioActivo.rol);
+}
+
+/*
+  Comprueba si hay una sesión iniciada.
+*/
+export function haySesionActiva() {
+  return Boolean(obtenerUsuarioAutenticado());
+}
+
+/*
+  Comprueba si el usuario activo tiene un rol concreto.
+*/
+export function usuarioTieneRol(rolEsperado) {
+  return obtenerRolUsuarioActivo() === normalizarRol(rolEsperado);
+}
+
+/*
+  Helpers semánticos para adaptar pantallas según rol.
+*/
+export function usuarioEsAdmin() {
+  return usuarioTieneRol(ROL_ADMIN);
+}
+
+export function usuarioEsEmpresa() {
+  return usuarioTieneRol(ROL_EMPRESA);
+}
+
+export function usuarioEsCandidato() {
+  return usuarioTieneRol(ROL_CANDIDATO);
+}
+
+/*
+  Devuelve una etiqueta visual limpia para el rol.
+*/
+export function obtenerEtiquetaRol(rol) {
+  const rolNormalizado = normalizarRol(rol);
+
+  if (rolNormalizado === ROL_ADMIN) {
+    return "Administrador";
+  }
+
+  if (rolNormalizado === ROL_EMPRESA) {
+    return "Empresa";
+  }
+
+  if (rolNormalizado === ROL_CANDIDATO) {
+    return "Candidato";
+  }
+
+  return "Usuario";
+}
+
+/*
   Devuelve un texto simple con el nombre del usuario activo.
+  Si no hay usuario, devuelve cadena vacía para no mostrar "-no login-".
 */
 export function obtenerTextoUsuarioActivo() {
   const usuarioActivo = obtenerUsuarioAutenticado();
 
   if (!usuarioActivo) {
-    return "-no login-";
+    return "";
   }
 
   return `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
 }
 
 /*
-  Oculta el botón de cerrar sesión sin eliminarlo del flujo visual.
+  Oculta un elemento de forma accesible.
+*/
+function ocultarElemento(elemento) {
+  if (!elemento) {
+    return;
+  }
+
+  elemento.classList.add("d-none");
+  elemento.setAttribute("aria-hidden", "true");
+  elemento.tabIndex = -1;
+}
+
+/*
+  Muestra un elemento de forma accesible.
+*/
+function mostrarElemento(elemento) {
+  if (!elemento) {
+    return;
+  }
+
+  elemento.classList.remove("d-none");
+  elemento.setAttribute("aria-hidden", "false");
+  elemento.tabIndex = 0;
+}
+
+/*
+  Oculta el botón de cerrar sesión sin eliminar el control del DOM.
 */
 function ocultarBotonCerrarSesion(botonCerrarSesion) {
   if (!botonCerrarSesion) {
@@ -33,7 +144,7 @@ function ocultarBotonCerrarSesion(botonCerrarSesion) {
 }
 
 /*
-  Muestra el botón de cerrar sesión manteniendo el espacio reservado.
+  Muestra el botón de cerrar sesión.
 */
 function mostrarBotonCerrarSesion(botonCerrarSesion) {
   if (!botonCerrarSesion) {
@@ -47,6 +158,124 @@ function mostrarBotonCerrarSesion(botonCerrarSesion) {
 }
 
 /*
+  Localiza todos los enlaces de navbar que apuntan a una página concreta.
+*/
+function obtenerLinksNavbarPorHref(nombreArchivo) {
+  return Array.from(document.querySelectorAll(".navbar a.nav-link"))
+    .filter((link) => {
+      const href = link.getAttribute("href") || "";
+      return href.endsWith(nombreArchivo);
+    });
+}
+
+/*
+  Cambia el texto visible de un enlace de navbar sin tocar su href.
+*/
+function cambiarTextoLinksNavbar(nombreArchivo, texto) {
+  obtenerLinksNavbarPorHref(nombreArchivo).forEach((link) => {
+    link.textContent = texto;
+  });
+}
+
+/*
+  Muestra u oculta enlaces de navbar según convenga.
+*/
+function configurarVisibilidadLinksNavbar(nombreArchivo, visible) {
+  obtenerLinksNavbarPorHref(nombreArchivo).forEach((link) => {
+    const item = link.closest(".nav-item") || link;
+
+    if (visible) {
+      mostrarElemento(item);
+      return;
+    }
+
+    ocultarElemento(item);
+  });
+}
+
+
+/*
+  Aplica clases al body para permitir estilos por rol.
+*/
+function aplicarClaseRolEnBody(usuarioActivo) {
+  if (!document.body) {
+    return;
+  }
+
+  document.body.classList.remove(
+    "role-admin",
+    "role-empresa",
+    "role-candidato",
+    "role-sin-sesion"
+  );
+
+  if (!usuarioActivo) {
+    document.body.classList.add("role-sin-sesion");
+    return;
+  }
+
+  const rol = normalizarRol(usuarioActivo.rol);
+
+  if (rol === ROL_ADMIN) {
+    document.body.classList.add("role-admin");
+    return;
+  }
+
+  if (rol === ROL_EMPRESA) {
+    document.body.classList.add("role-empresa");
+    return;
+  }
+
+  if (rol === ROL_CANDIDATO) {
+    document.body.classList.add("role-candidato");
+    return;
+  }
+
+  document.body.classList.add("role-sin-sesion");
+}
+
+/*
+  Adapta la navbar según el rol activo.
+*/
+export function adaptarNavbarPorRol() {
+  const usuarioActivo = obtenerUsuarioAutenticado();
+  const rol = normalizarRol(usuarioActivo?.rol);
+  const sesionActiva = Boolean(usuarioActivo);
+
+  aplicarClaseRolEnBody(usuarioActivo);
+
+  /*
+    Sin sesión:
+    - Solo tiene sentido mostrar Inicio/JobConnect y Login.
+    - Dashboard y Ofertas/Demandas son pantallas protegidas.
+    - Usuarios también queda oculto.
+    
+    Con sesión:
+    - Dashboard y Ofertas/Demandas vuelven a estar disponibles.
+    - Usuarios solo aparece si el rol es admin.
+    
+    No cambiamos textos dinámicamente para evitar temblores visuales.
+  */
+  configurarVisibilidadLinksNavbar("dashboard.html", sesionActiva);
+  configurarVisibilidadLinksNavbar("ofertas-demandas.html", sesionActiva);
+  configurarVisibilidadLinksNavbar("usuarios.html", sesionActiva && rol === ROL_ADMIN);
+
+  /*
+    Login:
+    - Visible sin sesión.
+    - Oculto con sesión, porque ya aparece el nombre + cerrar sesión.
+  */
+  cambiarTextoLinksNavbar("login.html", "Login");
+  configurarVisibilidadLinksNavbar("login.html", !sesionActiva);
+}
+
+function marcarNavbarPreparada() {
+  if (!document.documentElement.classList.contains("jc-nav-ready")) {
+    document.documentElement.classList.add("jc-nav-ready");
+  }
+}
+
+/*
   Pinta en la navbar el usuario activo.
 */
 export function pintarUsuarioEnNavbar() {
@@ -54,26 +283,35 @@ export function pintarUsuarioEnNavbar() {
     || document.getElementById("usuario-logueado-nav");
 
   const botonCerrarSesion = document.getElementById("btn-cerrar-sesion");
-
-  if (!elementoUsuario) {
-    return;
-  }
-
   const usuarioActivo = obtenerUsuarioAutenticado();
 
-  if (!usuarioActivo) {
-    elementoUsuario.textContent = "Usuario activo: -no login-";
-    elementoUsuario.title = "Usuario activo: -no login-";
-    ocultarBotonCerrarSesion(botonCerrarSesion);
+  adaptarNavbarPorRol();
+
+  if (!elementoUsuario) {
+    marcarNavbarPreparada();
     return;
   }
 
-  const textoUsuario = `Usuario activo: ${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
+  if (!usuarioActivo) {
+    elementoUsuario.textContent = "";
+    elementoUsuario.title = "";
+    elementoUsuario.classList.add("d-none");
+    elementoUsuario.setAttribute("aria-hidden", "true");
+
+    ocultarBotonCerrarSesion(botonCerrarSesion);
+    marcarNavbarPreparada();
+    return;
+  }
+
+  const textoUsuario = `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
 
   elementoUsuario.textContent = textoUsuario;
   elementoUsuario.title = textoUsuario;
+  elementoUsuario.classList.remove("d-none");
+  elementoUsuario.setAttribute("aria-hidden", "false");
 
   mostrarBotonCerrarSesion(botonCerrarSesion);
+  marcarNavbarPreparada();
 }
 
 /*
@@ -109,6 +347,30 @@ export function configurarBotonCerrarSesion() {
     borrarUsuarioAutenticado();
     window.location.href = "login.html";
   });
+}
+
+/*
+  Comprueba si la pantalla requiere sesión.
+*/
+export function protegerPantallaConSesion() {
+  if (haySesionActiva()) {
+    return true;
+  }
+
+  window.location.href = "login.html";
+  return false;
+}
+
+/*
+  Comprueba si la pantalla requiere rol administrador.
+*/
+export function protegerPantallaAdmin() {
+  if (usuarioEsAdmin()) {
+    return true;
+  }
+
+  window.location.href = "dashboard.html";
+  return false;
 }
 
 /*
@@ -290,11 +552,13 @@ export function limpiarAlerta(elemento) {
   Devuelve una clase CSS para el badge del rol.
 */
 export function obtenerClaseBadgeRol(rol) {
-  if (rol === "admin") {
+  const rolNormalizado = normalizarRol(rol);
+
+  if (rolNormalizado === ROL_ADMIN) {
     return "badge-rol-admin";
   }
 
-  if (rol === "empresa") {
+  if (rolNormalizado === ROL_EMPRESA) {
     return "badge-rol-empresa";
   }
 

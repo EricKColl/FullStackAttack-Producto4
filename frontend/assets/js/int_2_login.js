@@ -1,5 +1,6 @@
 import {
   borrarToken,
+  borrarUsuarioAutenticado,
   graphqlRequest,
   guardarToken,
   guardarUsuarioAutenticado,
@@ -25,11 +26,14 @@ const LOGIN_ADMIN = `
 const LOGIN_USUARIO = `
   mutation LoguearUsuario($email: String!, $password: String!) {
     loguearUsuario(email: $email, password: $password) {
-      id
-      nombre
-      apellidos
-      email
-      rol
+      token
+      usuario {
+        id
+        nombre
+        apellidos
+        email
+        rol
+      }
     }
   }
 `;
@@ -59,7 +63,7 @@ function inicializarPaginaLogin() {
   if (usuarioActivo) {
     mostrarAlerta(
       mensajeLogin,
-      `Sesión activa: ${usuarioActivo.nombre} ${usuarioActivo.apellidos}.`,
+      `Sesión activa: ${usuarioActivo.nombre} ${usuarioActivo.apellidos}. Puedes cambiar de usuario iniciando sesión de nuevo.`,
       "info",
       0
     );
@@ -90,29 +94,44 @@ function redirigirAlDashboard() {
 }
 
 /*
+  Limpia cualquier sesión anterior antes de iniciar una nueva.
+  Esto evita conservar permisos de otro usuario.
+*/
+function limpiarSesionAnterior() {
+  borrarToken();
+  borrarUsuarioAutenticado();
+}
+
+/*
+  Guarda una sesión completa: token JWT + datos públicos del usuario.
+*/
+function guardarSesionCompleta(authPayload) {
+  if (!authPayload || !authPayload.token || !authPayload.usuario) {
+    throw new Error("La respuesta de login no contiene una sesión válida.");
+  }
+
+  guardarToken(authPayload.token);
+  guardarUsuarioAutenticado(authPayload.usuario);
+
+  return authPayload.usuario;
+}
+
+/*
   Login de administrador con JWT.
 */
 async function loginAdmin(email, password) {
   const data = await graphqlRequest(LOGIN_ADMIN, { email, password });
 
-  guardarToken(data.loginAdmin.token);
-  guardarUsuarioAutenticado(data.loginAdmin.usuario);
-
-  return data.loginAdmin.usuario;
+  return guardarSesionCompleta(data.loginAdmin);
 }
 
 /*
-  Login de usuario normal.
-  Se elimina cualquier token previo para evitar permisos antiguos.
+  Login de empresa o candidato con JWT.
 */
 async function loginUsuarioNormal(email, password) {
-  borrarToken();
-
   const data = await graphqlRequest(LOGIN_USUARIO, { email, password });
 
-  guardarUsuarioAutenticado(data.loguearUsuario);
-
-  return data.loguearUsuario;
+  return guardarSesionCompleta(data.loguearUsuario);
 }
 
 /*
@@ -122,6 +141,8 @@ async function gestionarLogin(evento) {
   evento.preventDefault();
 
   try {
+    limpiarSesionAnterior();
+
     const { email, password } = validarFormulario();
     let usuario = null;
 
@@ -135,7 +156,7 @@ async function gestionarLogin(evento) {
 
     mostrarAlerta(
       mensajeLogin,
-      `Bienvenido/a, ${usuario.nombre}. Redirigiendo...`,
+      `Bienvenido/a, ${usuario.nombre}. Sesión iniciada como ${usuario.rol}. Redirigiendo...`,
       "success",
       TIEMPO_REDIRECCION_LOGIN
     );
@@ -143,6 +164,8 @@ async function gestionarLogin(evento) {
     formLogin.reset();
     window.setTimeout(redirigirAlDashboard, TIEMPO_REDIRECCION_LOGIN);
   } catch (error) {
+    limpiarSesionAnterior();
+    pintarUsuarioEnNavbar();
     mostrarAlerta(mensajeLogin, error.message, "danger");
   }
 }

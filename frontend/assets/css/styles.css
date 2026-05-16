@@ -1832,3 +1832,443 @@ footer {
     min-height: 520px;
   }
 }
+/* =========================================================
+   AJUSTE FINAL NAVBAR + ROLES PRODUCTO 4
+   ========================================================= */
+
+/* Bloque derecho de sesión: Login + usuario + cerrar sesión */
+.navbar .session-actions {
+  width: 520px !important;
+  min-width: 520px !important;
+  max-width: 520px !important;
+  flex: 0 0 520px !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  overflow: hidden !important;
+}
+
+/* Login colocado en la derecha con ancho reservado para evitar saltos */
+.navbar .session-login-link {
+  width: 122px !important;
+  min-width: 122px !important;
+  max-width: 122px !important;
+  flex: 0 0 122px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+/* Usuario activo estable */
+.navbar .usuario-sesion-navbar,
+#usuarioActivo {
+  width: 236px !important;
+  min-width: 236px !important;
+  max-width: 236px !important;
+  flex: 0 0 236px !important;
+  display: inline-block;
+  text-align: right;
+  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Si no hay usuario logeado, no se muestra texto ni "invitado" */
+#usuarioActivo.d-none,
+.usuario-sesion-navbar.d-none {
+  display: none !important;
+}
+
+/* Botón de cerrar sesión estable */
+#btn-cerrar-sesion {
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
+  flex: 0 0 140px !important;
+}
+
+/* Oculto visualmente, pero sin provocar comportamientos raros */
+#btn-cerrar-sesion.session-button-hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Pequeña diferenciación visual por rol */
+body.role-admin .navbar {
+  border-bottom-color: rgba(255, 215, 114, 0.28);
+}
+
+body.role-empresa .navbar {
+  border-bottom-color: rgba(79, 240, 190, 0.26);
+}
+
+body.role-candidato .navbar {
+  border-bottom-color: rgba(66, 214, 255, 0.28);
+}
+
+/* Componentes que usaremos en las siguientes pantallas */
+.role-context-panel {
+  border: 1px solid rgba(91, 215, 255, 0.18);
+  border-radius: var(--jc-radius);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(66, 214, 255, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(7, 16, 31, 0.94), rgba(8, 17, 34, 0.88));
+  box-shadow: var(--jc-shadow-md);
+  padding: 1.35rem;
+  margin-bottom: 1.4rem;
+}
+
+.role-context-panel h2 {
+  margin-bottom: 0.45rem;
+}
+
+.role-context-panel p {
+  margin-bottom: 0;
+  color: var(--jc-muted);
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0.32rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 215, 255, 0.24);
+  background: rgba(66, 214, 255, 0.10);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.readonly-role-notice {
+  border: 1px solid rgba(255, 215, 114, 0.22);
+  border-radius: var(--jc-radius-sm);
+  background: rgba(255, 215, 114, 0.08);
+  color: var(--jc-text);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Elementos que se mostrarán/ocultarán por JS */
+.accion-solo-admin.d-none,
+.bloque-solo-admin.d-none,
+.bloque-solo-empresa.d-none,
+.bloque-solo-candidato.d-none {
+  display: none !important;
+}
+
+@media (max-width: 1399px) {
+  .navbar .session-actions {
+    width: 470px !important;
+    min-width: 470px !important;
+    max-width: 470px !important;
+    flex-basis: 470px !important;
+  }
+
+  .navbar .session-login-link {
+    width: 118px !important;
+    min-width: 118px !important;
+    max-width: 118px !important;
+    flex-basis: 118px !important;
+  }
+
+  .navbar .usuario-sesion-navbar,
+  #usuarioActivo {
+    width: 204px !important;
+    min-width: 204px !important;
+    max-width: 204px !important;
+    flex-basis: 204px !important;
+  }
+
+  #btn-cerrar-sesion {
+    width: 132px !important;
+    min-width: 132px !important;
+    max-width: 132px !important;
+    flex-basis: 132px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  .navbar .session-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+    margin-top: 0.8rem;
+    overflow: visible !important;
+  }
+
+  .navbar .session-login-link,
+  .navbar .usuario-sesion-navbar,
+  #usuarioActivo,
+  #btn-cerrar-sesion {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: 0 1 auto !important;
+    text-align: left !important;
+  }
+
+  .navbar .session-actions {
+    flex-wrap: wrap;
+  }
+}
+
+
+
+/* =========================================================
+   PREVENCIÓN DE PARPADEO INICIAL POR SESIÓN Y ROL
+   ========================================================= */
+
+/*
+  Evita que la página protegida llegue a verse antes de validar sesión.
+  Con esto desaparece el efecto de ver dashboard/ofertas durante un segundo
+  antes de redirigir a login.
+*/
+html.jc-auth-guard:not(.jc-preauth-ok) body {
+  visibility: hidden !important;
+}
+
+/*
+  La pestaña Usuarios queda oculta desde el primer pintado salvo que el rol
+  precargado sea admin. Así no aparece fugazmente para candidato, empresa
+  o usuarios sin sesión.
+*/
+html:not(.jc-role-admin) .navbar .nav-item:has(a[href$="usuarios.html"]) {
+  display: none !important;
+}
+
+html.jc-role-admin .navbar .nav-item:has(a[href$="usuarios.html"]) {
+  display: list-item !important;
+}
+
+
+
+
+
+/* =========================================================
+   BOOT VISUAL DE NAVBAR SIN TEMBLORES
+   ========================================================= */
+
+/*
+  Mientras la navbar no está preparada, la página permanece oculta.
+  Esto evita que se vea primero una navbar provisional y después otra final.
+*/
+html.jc-nav-boot:not(.jc-nav-ready) body {
+  visibility: hidden !important;
+}
+
+/*
+  En páginas protegidas mantenemos la misma lógica:
+  no se enseña nada hasta que sesión y navbar estén listas.
+*/
+html.jc-auth-guard:not(.jc-nav-ready) body {
+  visibility: hidden !important;
+}
+
+/*
+  Zona derecha estable.
+  Con sesión solo se muestra usuario + cerrar sesión.
+  Sin sesión solo se muestra Login.
+*/
+html:not(.jc-role-sin-sesion) .navbar .session-login-link {
+  display: none !important;
+}
+
+html.jc-role-sin-sesion .navbar .usuario-sesion-navbar,
+html.jc-role-sin-sesion #usuarioActivo {
+  display: none !important;
+}
+
+html.jc-role-sin-sesion #btn-cerrar-sesion {
+  display: none !important;
+}
+
+.navbar .session-actions {
+  min-height: 44px !important;
+}
+
+.navbar .usuario-sesion-navbar,
+#usuarioActivo {
+  width: 260px !important;
+  min-width: 260px !important;
+  max-width: 260px !important;
+}
+
+#btn-cerrar-sesion {
+  width: 150px !important;
+  min-width: 150px !important;
+  max-width: 150px !important;
+}
+
+
+
+/* =========================================================
+   DASHBOARD POR ROL · DISTRIBUCIÓN KPI Y PANEL LIMPIO
+   ========================================================= */
+
+/*
+  Cuando el rol no es administrador, el dashboard muestra 3 tarjetas.
+  Se centran y se reparten de forma equilibrada para evitar que queden
+  acumuladas hacia la izquierda.
+*/
+body.role-empresa .dashboard-kpi-row,
+body.role-candidato .dashboard-kpi-row,
+html.jc-role-empresa .dashboard-kpi-row,
+html.jc-role-candidato .dashboard-kpi-row {
+  justify-content: center !important;
+  align-items: stretch !important;
+}
+
+/*
+  Las tres tarjetas principales ocupan un ancho equilibrado en escritorio.
+*/
+@media (min-width: 1200px) {
+  body.role-empresa .dashboard-kpi-col:not(.d-none),
+  body.role-candidato .dashboard-kpi-col:not(.d-none),
+  html.jc-role-empresa .dashboard-kpi-col:not(.d-none),
+  html.jc-role-candidato .dashboard-kpi-col:not(.d-none) {
+    flex: 0 0 30.5% !important;
+    max-width: 30.5% !important;
+  }
+}
+
+/*
+  En pantallas medianas quedan en dos columnas sin romper geometría.
+*/
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  body.role-empresa .dashboard-kpi-col:not(.d-none),
+  body.role-candidato .dashboard-kpi-col:not(.d-none),
+  html.jc-role-empresa .dashboard-kpi-col:not(.d-none),
+  html.jc-role-candidato .dashboard-kpi-col:not(.d-none) {
+    flex: 0 0 46% !important;
+    max-width: 46% !important;
+  }
+}
+
+/*
+  Como empresa/candidato solo tienen un filtro funcional, el panel intermedio
+  se elimina y el bloque final de publicaciones gana protagonismo.
+*/
+body.role-empresa main > section.section-card.d-none,
+body.role-candidato main > section.section-card.d-none,
+html.jc-role-empresa main > section.section-card.d-none,
+html.jc-role-candidato main > section.section-card.d-none {
+  display: none !important;
+}
+
+/*
+  Compensación visual: al eliminar el panel intermedio, el listado final
+  queda más limpio y mejor separado de las métricas.
+*/
+body.role-empresa .dashboard-kpi-row,
+body.role-candidato .dashboard-kpi-row {
+  margin-bottom: 2rem !important;
+}
+
+
+
+/* =========================================================
+   DASHBOARD CANDIDATO · BIENVENIDA INTEGRADA
+   ========================================================= */
+
+.dashboard-welcome-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  margin: 0 auto 1rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(66, 214, 255, 0.22);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(66, 214, 255, 0.12), rgba(93, 95, 239, 0.08));
+  box-shadow: 0 0 24px rgba(66, 214, 255, 0.08);
+  color: var(--jc-text);
+}
+
+.dashboard-welcome-line strong {
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+.dashboard-welcome-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--jc-muted);
+}
+
+@media (max-width: 768px) {
+  .dashboard-welcome-line {
+    flex-direction: column;
+    gap: 0.25rem;
+    border-radius: var(--jc-radius-sm);
+  }
+}
+
+
+
+/* =========================================================
+   NAVBAR SIN SESIÓN · SOLO OPCIONES ÚTILES
+   ========================================================= */
+
+/*
+  Sin sesión solo se muestra acceso real: Login.
+  Dashboard, Ofertas/Demandas y Usuarios se ocultan desde el primer render.
+  Esto evita enlaces que solo redirigen al login y mantiene la navbar limpia.
+*/
+html.jc-role-sin-sesion .navbar .nav-item:has(a[href$="dashboard.html"]),
+html.jc-role-sin-sesion .navbar .nav-item:has(a[href$="ofertas-demandas.html"]),
+html.jc-role-sin-sesion .navbar .nav-item:has(a[href$="usuarios.html"]) {
+  display: none !important;
+}
+
+/*
+  Con sesión, Dashboard y Ofertas/Demandas vuelven a mostrarse.
+*/
+html.jc-role-admin .navbar .nav-item:has(a[href$="dashboard.html"]),
+html.jc-role-admin .navbar .nav-item:has(a[href$="ofertas-demandas.html"]),
+html.jc-role-empresa .navbar .nav-item:has(a[href$="dashboard.html"]),
+html.jc-role-empresa .navbar .nav-item:has(a[href$="ofertas-demandas.html"]),
+html.jc-role-candidato .navbar .nav-item:has(a[href$="dashboard.html"]),
+html.jc-role-candidato .navbar .nav-item:has(a[href$="ofertas-demandas.html"]) {
+  display: list-item !important;
+}
+
+/*
+  El botón Ver dashboard de la portada solo tiene sentido con sesión iniciada.
+*/
+html.jc-role-sin-sesion .home-auth-only {
+  display: none !important;
+}
+
+html:not(.jc-role-sin-sesion) .home-auth-only {
+  display: inline-flex !important;
+}
+
+
+
+/* =========================================================
+   INDEX · BOTONES SEGÚN SESIÓN
+   ========================================================= */
+
+/*
+  El botón Iniciar sesión de la portada solo debe verse cuando no hay sesión.
+  Si ya existe admin, empresa o candidato logeado, se oculta.
+*/
+html:not(.jc-role-sin-sesion) .home-guest-only {
+  display: none !important;
+}
+
+html.jc-role-sin-sesion .home-guest-only {
+  display: inline-flex !important;
+}
+

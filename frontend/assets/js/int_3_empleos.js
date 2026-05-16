@@ -1,6 +1,7 @@
 import {
   graphqlRequest,
   obtenerTokenAdminObligatorio,
+  obtenerTokenSesionObligatorio,
   obtenerUsuarioAutenticado
 } from "./api.js";
 import {
@@ -8,7 +9,12 @@ import {
   configurarBotonCerrarSesion,
   confirmarAccion,
   mostrarAlerta,
-  pintarUsuarioEnNavbar
+  obtenerEtiquetaRol,
+  pintarUsuarioEnNavbar,
+  protegerPantallaConSesion,
+  usuarioEsAdmin,
+  usuarioEsCandidato,
+  usuarioEsEmpresa
 } from "./ui.js";
 
 /*
@@ -82,13 +88,241 @@ let resizeTimeoutId = null;
 let refrescoPublicacionesTimeoutId = null;
 let socketPublicaciones = null;
 
+/*
+  Devuelve el usuario activo de forma centralizada.
+*/
+function obtenerUsuarioActual() {
+  return obtenerUsuarioAutenticado();
+}
+
+/*
+  Devuelve el email del usuario activo normalizado.
+*/
+function obtenerEmailUsuarioActual() {
+  return String(obtenerUsuarioActual()?.email || "").trim().toLowerCase();
+}
+
+/*
+  Indica el tipo de publicación que puede crear cada rol no administrador.
+*/
+function obtenerTipoForzadoPorRol() {
+  if (usuarioEsEmpresa()) {
+    return "oferta";
+  }
+
+  if (usuarioEsCandidato()) {
+    return "demanda";
+  }
+
+  return null;
+}
+
+/*
+  Define qué publicaciones tienen sentido para cada rol.
+*/
+function publicacionVisibleParaRol(publicacion) {
+  if (usuarioEsAdmin()) {
+    return true;
+  }
+
+  const emailUsuario = obtenerEmailUsuarioActual();
+  const emailPublicacionActual = String(publicacion.emailContacto || "").trim().toLowerCase();
+  const esPublicacionPropia = emailUsuario && emailUsuario === emailPublicacionActual;
+
+  if (usuarioEsEmpresa()) {
+    return publicacion.tipo === "demanda" || (publicacion.tipo === "oferta" && esPublicacionPropia);
+  }
+
+  if (usuarioEsCandidato()) {
+    return publicacion.tipo === "oferta" || (publicacion.tipo === "demanda" && esPublicacionPropia);
+  }
+
+  return false;
+}
+
+/*
+  Filtra una lista de publicaciones según el rol activo.
+*/
+function filtrarPublicacionesPorRol(publicaciones) {
+  return publicaciones.filter(publicacionVisibleParaRol);
+}
+
+/*
+  Adapta textos, formulario y filtros de la pantalla según el rol.
+*/
+function adaptarPaginaPublicacionesAlRol() {
+  const usuario = obtenerUsuarioActual();
+
+  if (!usuario) {
+    return;
+  }
+
+  eliminarPanelContextoPublicaciones();
+  adaptarTextosPublicacionesPorRol();
+  adaptarFormularioPublicacionPorRol(usuario);
+  adaptarFiltrosPublicacionesPorRol();
+  adaptarCabeceraAccionTabla();
+}
+
+/*
+  Elimina el panel contextual de Ofertas/Demandas.
+
+  La pantalla ya queda explicada por el título, el formulario,
+  el gráfico y la tabla final. Mantener otro panel superior repetía
+  información y hacía la interfaz menos limpia.
+*/
+function eliminarPanelContextoPublicaciones() {
+  const panel = document.getElementById("panel-contexto-rol-publicaciones");
+
+  if (panel) {
+    panel.remove();
+  }
+}
+
+/*
+  Inserta un panel contextual para explicar qué está viendo cada rol.
+*/
+function insertarPanelContextoPublicaciones(usuario) {
+  const intro = document.querySelector(".page-intro");
+
+  if (!intro) {
+    return;
+  }
+
+  let panel = document.getElementById("panel-contexto-rol-publicaciones");
+
+  if (!panel) {
+    panel = document.createElement("section");
+    panel.id = "panel-contexto-rol-publicaciones";
+    panel.className = "role-context-panel";
+    intro.insertAdjacentElement("afterend", panel);
+  }
+
+  let titulo = "Vista personalizada de publicaciones";
+  let descripcion = "La información visible se adapta al rol activo de la sesión.";
+
+  if (usuarioEsAdmin()) {
+    titulo = "Gestión global de ofertas y demandas";
+    descripcion = "Como administrador puedes consultar, crear y eliminar publicaciones de todo el sistema.";
+  } else if (usuarioEsEmpresa()) {
+    titulo = "Vista de empresa";
+    descripcion = "Como empresa puedes crear ofertas, consultar demandas de candidatos y revisar tus propias ofertas publicadas.";
+  } else if (usuarioEsCandidato()) {
+    titulo = "Vista de candidato";
+    descripcion = "Como candidato puedes crear demandas, consultar ofertas de empresas y revisar tus propias demandas publicadas.";
+  }
+
+  panel.innerHTML = `
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <span class="role-chip mb-3">${escaparHTML(obtenerEtiquetaRol(usuario.rol))}</span>
+        <h2 class="h4">${escaparHTML(titulo)}</h2>
+        <p>${escaparHTML(descripcion)}</p>
+      </div>
+      <div class="text-end">
+        <p class="mb-1 text-muted">Sesión activa</p>
+        <strong>${escaparHTML(usuario.nombre)} ${escaparHTML(usuario.apellidos)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+/*
+  Actualiza títulos y subtítulos principales de la pantalla.
+*/
+function adaptarTextosPublicacionesPorRol() {
+  const tituloPagina = document.querySelector(".page-heading");
+  const subtituloPagina = document.querySelector(".page-subtitle");
+  const titulosSeccion = document.querySelectorAll(".section-title");
+  const subtitulosSeccion = document.querySelectorAll(".section-subtitle");
+
+  if (usuarioEsAdmin()) {
+    if (tituloPagina) tituloPagina.textContent = "Publicaciones laborales de JobConnect";
+    if (subtituloPagina) subtituloPagina.textContent = "Gestiona ofertas, demandas, filtros, gráfico de actividad y publicaciones registradas desde una vista administrativa completa.";
+    return;
+  }
+
+  if (usuarioEsEmpresa()) {
+    if (tituloPagina) tituloPagina.textContent = "Gestión de ofertas de empresa";
+    if (subtituloPagina) subtituloPagina.textContent = "Publica nuevas ofertas laborales y revisa las demandas de candidatos disponibles para conectar con talento.";
+    if (titulosSeccion[0]) titulosSeccion[0].textContent = "Nueva oferta laboral";
+    if (subtitulosSeccion[0]) subtitulosSeccion[0].textContent = "Crea una oferta asociada a tu cuenta de empresa. El contacto se asigna automáticamente a tu sesión.";
+    if (titulosSeccion[2]) titulosSeccion[2].textContent = "Demandas de candidatos y ofertas propias";
+    if (subtitulosSeccion[2]) subtitulosSeccion[2].textContent = "Consulta perfiles disponibles y revisa las ofertas publicadas desde tu cuenta.";
+    return;
+  }
+
+  if (usuarioEsCandidato()) {
+    if (tituloPagina) tituloPagina.textContent = "Oportunidades y perfil profesional";
+    if (subtituloPagina) subtituloPagina.textContent = "Consulta ofertas de empresas y publica tu demanda profesional para aumentar tus oportunidades.";
+    if (titulosSeccion[0]) titulosSeccion[0].textContent = "Nueva demanda profesional";
+    if (subtitulosSeccion[0]) subtitulosSeccion[0].textContent = "Registra tu perfil, disponibilidad o búsqueda profesional. El contacto se asigna automáticamente a tu sesión.";
+    if (titulosSeccion[2]) titulosSeccion[2].textContent = "Ofertas disponibles y demandas propias";
+    if (subtitulosSeccion[2]) subtitulosSeccion[2].textContent = "Consulta ofertas publicadas por empresas y revisa las demandas creadas desde tu cuenta.";
+  }
+}
+
+/*
+  Adapta el formulario para impedir opciones que no corresponden al rol.
+*/
+function adaptarFormularioPublicacionPorRol(usuario) {
+  const tipoForzado = obtenerTipoForzadoPorRol();
+
+  if (tipoForzado) {
+    tipoPublicacion.value = tipoForzado;
+    tipoPublicacion.disabled = true;
+  } else {
+    tipoPublicacion.disabled = false;
+  }
+
+  autorPublicacion.value = `${usuario.nombre} ${usuario.apellidos}`;
+  emailPublicacion.value = usuario.email;
+
+  if (!usuarioEsAdmin()) {
+    autorPublicacion.readOnly = true;
+    emailPublicacion.readOnly = true;
+  } else {
+    autorPublicacion.readOnly = false;
+    emailPublicacion.readOnly = false;
+  }
+}
+
+/*
+  Ajusta filtro por tipo según rol.
+*/
+function adaptarFiltrosPublicacionesPorRol() {
+  if (!filtroTipoPublicaciones) {
+    return;
+  }
+
+  Array.from(filtroTipoPublicaciones.options).forEach((opcion) => {
+    opcion.hidden = false;
+    opcion.disabled = false;
+  });
+
+  filtroTipoPublicaciones.value = "todas";
+}
+
+/*
+  Cambia la cabecera de acción según los permisos reales.
+*/
+function adaptarCabeceraAccionTabla() {
+  const cabeceraAccion = document.querySelector(".tabla-publicaciones th.columna-accion");
+
+  if (!cabeceraAccion) {
+    return;
+  }
+
+  cabeceraAccion.textContent = usuarioEsAdmin() ? "Acción" : "Permiso";
+}
+
 async function cargarPublicacionesBackend() {
   const data = await graphqlRequest(LISTAR_PUBLICACIONES);
   return data.listarPublicaciones;
 }
 
 async function crearPublicacionBackend(datosPublicacion) {
-  const token = obtenerTokenAdminObligatorio();
+  const token = obtenerTokenSesionObligatorio();
 
   const data = await graphqlRequest(
     CREAR_PUBLICACION,
@@ -117,7 +351,13 @@ async function eliminarPublicacionBackend(idPublicacion) {
 async function inicializarPaginaPublicaciones() {
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
+
+  if (!protegerPantallaConSesion()) {
+    return;
+  }
+
   completarDatosSugeridos();
+  adaptarPaginaPublicacionesAlRol();
   configurarCalendarioFecha();
   configurarFiltrosPublicaciones();
   configurarSocketPublicaciones();
@@ -243,27 +483,39 @@ function configurarCalendarioFecha() {
 */
 function completarDatosSugeridos() {
   fechaPublicacion.value = new Date().toISOString().split("T")[0];
-  const usuarioActivo = obtenerUsuarioAutenticado();
 
-  if (usuarioActivo) {
-    autorPublicacion.value = `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
-    emailPublicacion.value = usuarioActivo.email;
+  const usuarioActivo = obtenerUsuarioActual();
+
+  if (!usuarioActivo) {
+    return;
   }
+
+  const tipoForzado = obtenerTipoForzadoPorRol();
+
+  if (tipoForzado) {
+    tipoPublicacion.value = tipoForzado;
+  }
+
+  autorPublicacion.value = `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
+  emailPublicacion.value = usuarioActivo.email;
 }
 
 /*
   Recoge los datos del formulario para enviarlos al backend.
 */
 function obtenerDatosFormulario() {
+  const usuarioActivo = obtenerUsuarioActual();
+  const tipoForzado = obtenerTipoForzadoPorRol();
+
   return {
-    tipo: tipoPublicacion.value,
+    tipo: tipoForzado || tipoPublicacion.value,
     titulo: tituloPublicacion.value,
     categoria: categoriaPublicacion.value,
     autor: autorPublicacion.value,
     ubicacion: ubicacionPublicacion.value,
     fecha: fechaPublicacion.value,
     descripcion: descripcionPublicacion.value,
-    emailContacto: emailPublicacion.value
+    emailContacto: usuarioEsAdmin() ? emailPublicacion.value : usuarioActivo?.email
   };
 }
 
@@ -296,8 +548,9 @@ function escaparHTML(valor) {
 function obtenerPublicacionesFiltradas() {
   const textoBusqueda = normalizarTexto(buscadorPublicaciones?.value || "");
   const filtroTipo = filtroTipoPublicaciones?.value || "todas";
+  const publicacionesPorRol = filtrarPublicacionesPorRol(publicacionesCache);
 
-  return publicacionesCache.filter((publicacion) => {
+  return publicacionesPorRol.filter((publicacion) => {
     const coincideTipo = filtroTipo === "todas" || publicacion.tipo === filtroTipo;
 
     const textoPublicacion = normalizarTexto([
@@ -321,22 +574,32 @@ function obtenerPublicacionesFiltradas() {
 /*
   Actualiza el contador de resultados visibles.
 */
-function actualizarContadorPublicaciones(totalVisibles, totalPublicaciones) {
+function actualizarContadorPublicaciones(totalVisibles, totalPublicacionesVisiblesPorRol) {
   if (!contadorPublicaciones) {
     return;
   }
 
-  if (totalPublicaciones === 0) {
+  if (totalPublicacionesVisiblesPorRol === 0) {
+    if (usuarioEsEmpresa()) {
+      contadorPublicaciones.textContent = "No hay demandas de candidatos ni ofertas propias visibles.";
+      return;
+    }
+
+    if (usuarioEsCandidato()) {
+      contadorPublicaciones.textContent = "No hay ofertas de empresas ni demandas propias visibles.";
+      return;
+    }
+
     contadorPublicaciones.textContent = "No hay publicaciones registradas.";
     return;
   }
 
-  if (totalVisibles === totalPublicaciones) {
-    contadorPublicaciones.textContent = `Mostrando ${totalPublicaciones} publicaciones registradas.`;
+  if (totalVisibles === totalPublicacionesVisiblesPorRol) {
+    contadorPublicaciones.textContent = `Mostrando ${totalPublicacionesVisiblesPorRol} publicaciones visibles para tu rol.`;
     return;
   }
 
-  contadorPublicaciones.textContent = `Mostrando ${totalVisibles} de ${totalPublicaciones} publicaciones registradas.`;
+  contadorPublicaciones.textContent = `Mostrando ${totalVisibles} de ${totalPublicacionesVisiblesPorRol} publicaciones visibles para tu rol.`;
 }
 
 /*
@@ -344,13 +607,15 @@ function actualizarContadorPublicaciones(totalVisibles, totalPublicaciones) {
 */
 function pintarTablaPublicaciones() {
   const publicacionesFiltradas = obtenerPublicacionesFiltradas();
+  const publicacionesVisiblesPorRol = filtrarPublicacionesPorRol(publicacionesCache);
+  const colspan = 8;
 
-  actualizarContadorPublicaciones(publicacionesFiltradas.length, publicacionesCache.length);
+  actualizarContadorPublicaciones(publicacionesFiltradas.length, publicacionesVisiblesPorRol.length);
 
-  if (publicacionesCache.length === 0) {
+  if (publicacionesVisiblesPorRol.length === 0) {
     tablaPublicacionesBody.innerHTML = `
       <tr class="fila-vacia">
-        <td colspan="8" class="text-center text-muted">No hay ofertas o demandas registradas.</td>
+        <td colspan="${colspan}" class="text-center text-muted">No hay publicaciones visibles para el rol actual.</td>
       </tr>
     `;
     return;
@@ -359,7 +624,7 @@ function pintarTablaPublicaciones() {
   if (publicacionesFiltradas.length === 0) {
     tablaPublicacionesBody.innerHTML = `
       <tr class="fila-vacia">
-        <td colspan="8" class="text-center text-muted">
+        <td colspan="${colspan}" class="text-center text-muted">
           No hay publicaciones que coincidan con la búsqueda o el filtro seleccionado.
         </td>
       </tr>
@@ -372,6 +637,9 @@ function pintarTablaPublicaciones() {
   publicacionesFiltradas.forEach((publicacion) => {
     const fila = document.createElement("tr");
     const badgeClase = publicacion.tipo === "oferta" ? "badge-oferta" : "badge-demanda";
+    const accionHtml = usuarioEsAdmin()
+      ? `<button class="btn btn-sm btn-action-delete" data-id="${escaparHTML(publicacion.id)}">Eliminar</button>`
+      : `<span class="badge text-bg-secondary">Consulta</span>`;
 
     fila.innerHTML = `
       <td>${escaparHTML(publicacion.id)}</td>
@@ -381,16 +649,16 @@ function pintarTablaPublicaciones() {
       <td class="columna-email">${escaparHTML(publicacion.emailContacto)}</td>
       <td class="columna-descripcion">${escaparHTML(publicacion.descripcion)}</td>
       <td>${escaparHTML(publicacion.ubicacion)}</td>
-      <td class="columna-accion">
-        <button class="btn btn-sm btn-action-delete" data-id="${escaparHTML(publicacion.id)}">Eliminar</button>
-      </td>
+      <td class="columna-accion">${accionHtml}</td>
     `;
 
-    const botonEliminar = fila.querySelector("button");
+    const botonEliminar = fila.querySelector("button[data-id]");
 
-    botonEliminar.addEventListener("click", async () => {
-      await gestionarBorradoPublicacion(publicacion.id, publicacion.titulo);
-    });
+    if (botonEliminar) {
+      botonEliminar.addEventListener("click", async () => {
+        await gestionarBorradoPublicacion(publicacion.id, publicacion.titulo);
+      });
+    }
 
     tablaPublicacionesBody.appendChild(fila);
   });
@@ -408,10 +676,11 @@ async function gestionarAltaPublicacion(evento) {
     await pintarGraficoCanvas();
     formPublicacion.reset();
     completarDatosSugeridos();
+    adaptarFormularioPublicacionPorRol(obtenerUsuarioActual());
 
     mostrarAlerta(
       mensajePublicacion,
-      "Publicación guardada correctamente en el backend.",
+      "Publicación guardada correctamente según los permisos del rol activo.",
       "success"
     );
   } catch (error) {
@@ -423,6 +692,11 @@ async function gestionarAltaPublicacion(evento) {
   Elimina una publicación por su id usando el modal visual propio.
 */
 async function gestionarBorradoPublicacion(idPublicacion, tituloPublicacion) {
+  if (!usuarioEsAdmin()) {
+    mostrarAlerta(mensajePublicacion, "Solo el administrador puede eliminar publicaciones globales.", "warning");
+    return;
+  }
+
   const confirmarBorrado = await confirmarAccion({
     titulo: "Eliminar publicación",
     mensaje: `¿Seguro que quieres eliminar la publicación "${tituloPublicacion}"?`,
@@ -783,7 +1057,7 @@ async function pintarGraficoCanvas() {
     return;
   }
 
-  const publicaciones = await cargarPublicacionesBackend();
+  const publicaciones = filtrarPublicacionesPorRol(await cargarPublicacionesBackend());
   const totalOfertas = publicaciones.filter((publicacion) => publicacion.tipo === "oferta").length;
   const totalDemandas = publicaciones.filter((publicacion) => publicacion.tipo === "demanda").length;
   const totalPublicaciones = totalOfertas + totalDemandas;
