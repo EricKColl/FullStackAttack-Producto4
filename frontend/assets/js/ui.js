@@ -193,6 +193,7 @@ function configurarVisibilidadLinksNavbar(nombreArchivo, visible) {
   });
 }
 
+
 /*
   Aplica clases al body para permitir estilos por rol.
 */
@@ -239,44 +240,39 @@ function aplicarClaseRolEnBody(usuarioActivo) {
 export function adaptarNavbarPorRol() {
   const usuarioActivo = obtenerUsuarioAutenticado();
   const rol = normalizarRol(usuarioActivo?.rol);
+  const sesionActiva = Boolean(usuarioActivo);
 
   aplicarClaseRolEnBody(usuarioActivo);
 
   /*
-    Login se mantiene disponible para poder iniciar sesión o cambiar usuario.
-    En el siguiente paso lo moveremos visualmente a la derecha desde los HTML.
+    Sin sesión:
+    - Solo tiene sentido mostrar Inicio/JobConnect y Login.
+    - Dashboard y Ofertas/Demandas son pantallas protegidas.
+    - Usuarios también queda oculto.
+    
+    Con sesión:
+    - Dashboard y Ofertas/Demandas vuelven a estar disponibles.
+    - Usuarios solo aparece si el rol es admin.
+    
+    No cambiamos textos dinámicamente para evitar temblores visuales.
   */
-  cambiarTextoLinksNavbar("login.html", usuarioActivo ? "Cambiar usuario" : "Login");
+  configurarVisibilidadLinksNavbar("dashboard.html", sesionActiva);
+  configurarVisibilidadLinksNavbar("ofertas-demandas.html", sesionActiva);
+  configurarVisibilidadLinksNavbar("usuarios.html", sesionActiva && rol === ROL_ADMIN);
 
   /*
-    Usuarios es una pantalla administrativa.
-    Solo debe verla el administrador.
+    Login:
+    - Visible sin sesión.
+    - Oculto con sesión, porque ya aparece el nombre + cerrar sesión.
   */
-  configurarVisibilidadLinksNavbar("usuarios.html", rol === ROL_ADMIN);
+  cambiarTextoLinksNavbar("login.html", "Login");
+  configurarVisibilidadLinksNavbar("login.html", !sesionActiva);
+}
 
-  /*
-    Textos de navegación adaptados al contexto del usuario.
-  */
-  if (rol === ROL_ADMIN) {
-    cambiarTextoLinksNavbar("dashboard.html", "Dashboard admin");
-    cambiarTextoLinksNavbar("ofertas-demandas.html", "Ofertas/Demandas");
-    return;
+function marcarNavbarPreparada() {
+  if (!document.documentElement.classList.contains("jc-nav-ready")) {
+    document.documentElement.classList.add("jc-nav-ready");
   }
-
-  if (rol === ROL_EMPRESA) {
-    cambiarTextoLinksNavbar("dashboard.html", "Panel empresa");
-    cambiarTextoLinksNavbar("ofertas-demandas.html", "Ofertas y candidaturas");
-    return;
-  }
-
-  if (rol === ROL_CANDIDATO) {
-    cambiarTextoLinksNavbar("dashboard.html", "Panel candidato");
-    cambiarTextoLinksNavbar("ofertas-demandas.html", "Ofertas disponibles");
-    return;
-  }
-
-  cambiarTextoLinksNavbar("dashboard.html", "Dashboard");
-  cambiarTextoLinksNavbar("ofertas-demandas.html", "Ofertas/Demandas");
 }
 
 /*
@@ -292,6 +288,7 @@ export function pintarUsuarioEnNavbar() {
   adaptarNavbarPorRol();
 
   if (!elementoUsuario) {
+    marcarNavbarPreparada();
     return;
   }
 
@@ -302,12 +299,11 @@ export function pintarUsuarioEnNavbar() {
     elementoUsuario.setAttribute("aria-hidden", "true");
 
     ocultarBotonCerrarSesion(botonCerrarSesion);
+    marcarNavbarPreparada();
     return;
   }
 
-  const nombreCompleto = `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
-  const etiquetaRol = obtenerEtiquetaRol(usuarioActivo.rol);
-  const textoUsuario = `${nombreCompleto} · ${etiquetaRol}`;
+  const textoUsuario = `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
 
   elementoUsuario.textContent = textoUsuario;
   elementoUsuario.title = textoUsuario;
@@ -315,6 +311,7 @@ export function pintarUsuarioEnNavbar() {
   elementoUsuario.setAttribute("aria-hidden", "false");
 
   mostrarBotonCerrarSesion(botonCerrarSesion);
+  marcarNavbarPreparada();
 }
 
 /*

@@ -2,7 +2,96 @@
 <html lang="es">
 
 <head>
-  <!-- Configuración básica del documento -->
+      <style id="jc-nav-boot-style">
+    html.jc-nav-boot:not(.jc-nav-ready) body {
+      visibility: hidden !important;
+    }
+  </style>
+
+  <script id="jc-nav-boot">
+    (function () {
+      document.documentElement.classList.add("jc-nav-boot");
+
+      /*
+        Fallback de seguridad:
+        si por cualquier motivo el módulo JS no llega a marcar la navbar como preparada,
+        se muestra la página igualmente para no dejar la pantalla en blanco.
+      */
+      window.setTimeout(function () {
+        document.documentElement.classList.add("jc-nav-ready");
+      }, 1400);
+    })();
+  </script>
+
+<style id="jc-auth-guard-style">
+    html.jc-auth-guard:not(.jc-preauth-ok) body {
+      visibility: hidden !important;
+    }
+  </style>
+
+  <script id="jc-auth-guard">
+    (function () {
+      const TOKEN_STORAGE_KEY = "jobconnect_token";
+      const USUARIO_STORAGE_KEY = "jobconnect_usuario";
+      const roles = ["jc-role-admin", "jc-role-empresa", "jc-role-candidato", "jc-role-sin-sesion"];
+
+      document.documentElement.classList.add("jc-auth-guard");
+
+      function aplicarRol(rol) {
+        document.documentElement.classList.remove(...roles);
+
+        const rolSeguro = String(rol || "").trim().toLowerCase();
+
+        if (rolSeguro === "admin" || rolSeguro === "empresa" || rolSeguro === "candidato") {
+          document.documentElement.classList.add("jc-role-" + rolSeguro);
+          return rolSeguro;
+        }
+
+        document.documentElement.classList.add("jc-role-sin-sesion");
+        return "sin-sesion";
+      }
+
+      function limpiarSesion() {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.removeItem(USUARIO_STORAGE_KEY);
+      }
+
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const textoUsuario = localStorage.getItem(USUARIO_STORAGE_KEY);
+
+      if (!token || !textoUsuario) {
+        aplicarRol("sin-sesion");
+        window.location.replace("login.html");
+        return;
+      }
+
+      try {
+        const usuario = JSON.parse(textoUsuario);
+        const rol = aplicarRol(usuario && usuario.rol ? usuario.rol : "sin-sesion");
+
+        if (rol === "sin-sesion") {
+          limpiarSesion();
+          window.location.replace("login.html");
+          return;
+        }
+
+        const rutaActual = window.location.pathname.toLowerCase();
+
+        if (rutaActual.endsWith("/usuarios.html") && rol !== "admin") {
+          window.location.replace("dashboard.html");
+          return;
+        }
+
+        document.documentElement.classList.add("jc-preauth-ok");
+      } catch (error) {
+        limpiarSesion();
+        aplicarRol("sin-sesion");
+        window.location.replace("login.html");
+      }
+    })();
+  </script>
+
+<!-- Configuración básica del documento -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 

@@ -157,11 +157,26 @@ function adaptarPaginaPublicacionesAlRol() {
     return;
   }
 
-  insertarPanelContextoPublicaciones(usuario);
+  eliminarPanelContextoPublicaciones();
   adaptarTextosPublicacionesPorRol();
   adaptarFormularioPublicacionPorRol(usuario);
   adaptarFiltrosPublicacionesPorRol();
   adaptarCabeceraAccionTabla();
+}
+
+/*
+  Elimina el panel contextual de Ofertas/Demandas.
+
+  La pantalla ya queda explicada por el título, el formulario,
+  el gráfico y la tabla final. Mantener otro panel superior repetía
+  información y hacía la interfaz menos limpia.
+*/
+function eliminarPanelContextoPublicaciones() {
+  const panel = document.getElementById("panel-contexto-rol-publicaciones");
+
+  if (panel) {
+    panel.remove();
+  }
 }
 
 /*
@@ -222,28 +237,28 @@ function adaptarTextosPublicacionesPorRol() {
   const subtitulosSeccion = document.querySelectorAll(".section-subtitle");
 
   if (usuarioEsAdmin()) {
-    if (tituloPagina) tituloPagina.textContent = "Gestión administrativa de ofertas y demandas";
-    if (subtituloPagina) subtituloPagina.textContent = "Administra todas las publicaciones laborales conectadas al backend real de JobConnect.";
+    if (tituloPagina) tituloPagina.textContent = "Publicaciones laborales de JobConnect";
+    if (subtituloPagina) subtituloPagina.textContent = "Gestiona ofertas, demandas, filtros, gráfico de actividad y publicaciones registradas desde una vista administrativa completa.";
     return;
   }
 
   if (usuarioEsEmpresa()) {
-    if (tituloPagina) tituloPagina.textContent = "Ofertas de empresa y demandas de candidatos";
-    if (subtituloPagina) subtituloPagina.textContent = "Publica ofertas laborales y consulta demandas de candidatos disponibles en JobConnect.";
-    if (titulosSeccion[0]) titulosSeccion[0].textContent = "Nueva oferta de empresa";
-    if (subtitulosSeccion[0]) subtitulosSeccion[0].textContent = "Registra una oferta laboral asociada a tu sesión de empresa.";
-    if (titulosSeccion[2]) titulosSeccion[2].textContent = "Publicaciones visibles para empresa";
-    if (subtitulosSeccion[2]) subtitulosSeccion[2].textContent = "Consulta demandas de candidatos y tus propias ofertas publicadas.";
+    if (tituloPagina) tituloPagina.textContent = "Gestión de ofertas de empresa";
+    if (subtituloPagina) subtituloPagina.textContent = "Publica nuevas ofertas laborales y revisa las demandas de candidatos disponibles para conectar con talento.";
+    if (titulosSeccion[0]) titulosSeccion[0].textContent = "Nueva oferta laboral";
+    if (subtitulosSeccion[0]) subtitulosSeccion[0].textContent = "Crea una oferta asociada a tu cuenta de empresa. El contacto se asigna automáticamente a tu sesión.";
+    if (titulosSeccion[2]) titulosSeccion[2].textContent = "Demandas de candidatos y ofertas propias";
+    if (subtitulosSeccion[2]) subtitulosSeccion[2].textContent = "Consulta perfiles disponibles y revisa las ofertas publicadas desde tu cuenta.";
     return;
   }
 
   if (usuarioEsCandidato()) {
-    if (tituloPagina) tituloPagina.textContent = "Ofertas disponibles y demanda profesional";
-    if (subtituloPagina) subtituloPagina.textContent = "Consulta ofertas de empresas y publica tu demanda profesional como candidato.";
-    if (titulosSeccion[0]) titulosSeccion[0].textContent = "Nueva demanda de candidato";
-    if (subtitulosSeccion[0]) subtitulosSeccion[0].textContent = "Registra tu perfil, disponibilidad o necesidad profesional asociada a tu sesión.";
-    if (titulosSeccion[2]) titulosSeccion[2].textContent = "Publicaciones visibles para candidato";
-    if (subtitulosSeccion[2]) subtitulosSeccion[2].textContent = "Consulta ofertas de empresas y tus propias demandas publicadas.";
+    if (tituloPagina) tituloPagina.textContent = "Oportunidades y perfil profesional";
+    if (subtituloPagina) subtituloPagina.textContent = "Consulta ofertas de empresas y publica tu demanda profesional para aumentar tus oportunidades.";
+    if (titulosSeccion[0]) titulosSeccion[0].textContent = "Nueva demanda profesional";
+    if (subtitulosSeccion[0]) subtitulosSeccion[0].textContent = "Registra tu perfil, disponibilidad o búsqueda profesional. El contacto se asigna automáticamente a tu sesión.";
+    if (titulosSeccion[2]) titulosSeccion[2].textContent = "Ofertas disponibles y demandas propias";
+    if (subtitulosSeccion[2]) subtitulosSeccion[2].textContent = "Consulta ofertas publicadas por empresas y revisa las demandas creadas desde tu cuenta.";
   }
 }
 

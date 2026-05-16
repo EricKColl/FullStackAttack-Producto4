@@ -77,15 +77,10 @@ const QUITAR_SELECCIONADA = `
   }
 `;
 
-/*
-  Clave base usada para recordar el filtro del dashboard.
-  Se completa con el rol para evitar que un filtro de admin afecte
-  después a empresa o candidato.
-*/
 const CLAVE_FILTRO_DASHBOARD_BASE = "jobconnect_dashboard_filtro";
 
 /*
-  Elementos de resumen.
+  KPIs
 */
 const totalOfertasElemento = document.getElementById("total-ofertas");
 const totalDemandasElemento = document.getElementById("total-demandas");
@@ -93,7 +88,7 @@ const totalUsuariosElemento = document.getElementById("total-usuarios");
 const totalSeleccionadasElemento = document.getElementById("total-seleccionadas");
 
 /*
-  Contenedores principales.
+  Contenedores principales
 */
 const contenedorDisponibles = document.getElementById("contenedor-publicaciones");
 const contenedorSeleccionadas = document.getElementById("contenedor-seleccionadas");
@@ -102,7 +97,7 @@ const zonaDisponibles = contenedorDisponibles.closest(".drop-zone");
 const zonaSeleccionadas = contenedorSeleccionadas.closest(".drop-zone");
 
 /*
-  Elementos auxiliares.
+  Elementos auxiliares
 */
 const mensajeDashboard = document.getElementById("mensaje-dashboard");
 const estadoDashboard = document.getElementById("estado-dashboard");
@@ -111,7 +106,7 @@ const contadorSeleccionadas = document.getElementById("contador-seleccionadas");
 const botonesFiltro = document.querySelectorAll("[data-filtro]");
 
 /*
-  Estado local.
+  Estado local
 */
 let filtroActual = "todas";
 let publicacionesDisponiblesCache = [];
@@ -158,9 +153,6 @@ async function quitarSeleccionadaBackend(idPublicacion) {
   return data.quitarSeleccionada;
 }
 
-/*
-  Función principal de arranque del dashboard.
-*/
 async function inicializarDashboard() {
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
@@ -181,21 +173,15 @@ async function inicializarDashboard() {
     await repintarDashboard();
   } catch (error) {
     mostrarAlerta(mensajeDashboard, error.message, "danger", 0);
-    actualizarEstadoDashboard("No se pudo cargar la información del dashboard.");
+    actualizarEstadoDashboard("No se pudo cargar la información del panel.");
   }
 }
 
-/*
-  Devuelve la clave de filtro separada por rol.
-*/
 function obtenerClaveFiltroDashboard() {
   const rol = obtenerRolUsuarioActivo() || "sin-sesion";
   return `${CLAVE_FILTRO_DASHBOARD_BASE}_${rol}`;
 }
 
-/*
-  Recupera el filtro guardado.
-*/
 function recuperarFiltroGuardado() {
   const filtroGuardado = localStorage.getItem(obtenerClaveFiltroDashboard());
 
@@ -208,16 +194,10 @@ function recuperarFiltroGuardado() {
   }
 }
 
-/*
-  Guarda el filtro actual.
-*/
 function guardarFiltroActual() {
   localStorage.setItem(obtenerClaveFiltroDashboard(), filtroActual);
 }
 
-/*
-  Devuelve el filtro principal según el rol.
-*/
 function obtenerFiltroPrincipalPorRol() {
   if (usuarioEsEmpresa()) {
     return "demanda";
@@ -230,9 +210,6 @@ function obtenerFiltroPrincipalPorRol() {
   return "todas";
 }
 
-/*
-  Comprueba si un filtro es válido para el rol actual.
-*/
 function filtroPermitidoParaRol(filtro) {
   if (usuarioEsAdmin()) {
     return filtro === "todas" || filtro === "oferta" || filtro === "demanda";
@@ -249,9 +226,6 @@ function filtroPermitidoParaRol(filtro) {
   return false;
 }
 
-/*
-  Corrige el filtro si no corresponde al rol activo.
-*/
 function normalizarFiltroActualPorRol() {
   if (!filtroPermitidoParaRol(filtroActual)) {
     filtroActual = obtenerFiltroPrincipalPorRol();
@@ -259,9 +233,6 @@ function normalizarFiltroActualPorRol() {
   }
 }
 
-/*
-  Devuelve si una publicación debe ser visible para el rol activo.
-*/
 function publicacionVisibleParaRol(publicacion) {
   if (usuarioEsAdmin()) {
     return true;
@@ -278,16 +249,10 @@ function publicacionVisibleParaRol(publicacion) {
   return false;
 }
 
-/*
-  Filtra publicaciones según el rol activo.
-*/
 function filtrarPublicacionesPorRol(publicaciones) {
   return publicaciones.filter(publicacionVisibleParaRol);
 }
 
-/*
-  Crea o actualiza un panel superior explicando el contexto del rol.
-*/
 function adaptarDashboardAlRol() {
   const usuario = obtenerUsuarioActivo();
 
@@ -295,14 +260,58 @@ function adaptarDashboardAlRol() {
     return;
   }
 
+  prepararLayoutDashboardPorRol();
   actualizarTextosPrincipalesPorRol(usuario);
   actualizarTarjetasResumenPorRol();
-  insertarPanelContextoRol(usuario);
+  configurarPanelSuperiorPorRol(usuario);
 }
 
 /*
-  Cambia los textos principales del dashboard.
+  Prepara la estructura visual del dashboard según el rol.
+
+  - Admin mantiene el panel de control intermedio.
+  - Empresa y candidato eliminan el panel intermedio porque solo tienen
+    un tipo de publicación visible y no necesitan ese bloque extra.
+  - Las tarjetas KPI se centran y se reparten mejor cuando solo quedan 3.
 */
+function prepararLayoutDashboardPorRol() {
+  const filaKpis = totalOfertasElemento?.closest("section.row");
+
+  if (filaKpis) {
+    filaKpis.classList.add("dashboard-kpi-row");
+  }
+
+  const tarjetasKpi = [
+    totalOfertasElemento,
+    totalDemandasElemento,
+    totalUsuariosElemento,
+    totalSeleccionadasElemento
+  ];
+
+  tarjetasKpi.forEach((elemento) => {
+    const columna = elemento?.closest(".col-12");
+
+    if (columna) {
+      columna.classList.add("dashboard-kpi-col");
+    }
+  });
+
+  const panelControl = document.querySelector("main > section.section-card");
+
+  if (!panelControl) {
+    return;
+  }
+
+  if (usuarioEsAdmin()) {
+    panelControl.classList.remove("d-none");
+    panelControl.setAttribute("aria-hidden", "false");
+    return;
+  }
+
+  panelControl.classList.add("d-none");
+  panelControl.setAttribute("aria-hidden", "true");
+}
+
 function actualizarTextosPrincipalesPorRol(usuario) {
   const tituloPagina = document.querySelector(".page-heading");
   const subtituloPagina = document.querySelector(".page-subtitle");
@@ -311,28 +320,28 @@ function actualizarTextosPrincipalesPorRol(usuario) {
 
   if (usuarioEsAdmin()) {
     if (tituloPagina) {
-      tituloPagina.textContent = "Dashboard administrativo";
+      tituloPagina.textContent = "Centro de control de JobConnect";
     }
 
     if (subtituloPagina) {
       subtituloPagina.textContent =
-        "Supervisa el estado global de JobConnect, revisa usuarios, publicaciones, selección activa y sincronización en tiempo real.";
+        "Supervisa la actividad general de la plataforma, controla publicaciones, usuarios y selección activa en tiempo real.";
     }
 
     if (tituloControl) {
-      tituloControl.textContent = "Control global de publicaciones";
+      tituloControl.textContent = "Publicaciones y selección activa";
     }
 
     if (subtituloControl) {
       subtituloControl.textContent =
-        "Filtra ofertas y demandas, revisa la actividad general y organiza publicaciones seleccionadas desde una visión completa de administrador.";
+        "Consulta ofertas y demandas, aplica filtros y organiza la selección global desde una vista completa de administración.";
     }
 
     actualizarTitulosColumnas(
       "Publicaciones disponibles",
       "Ofertas y demandas todavía disponibles en el sistema.",
       "Selección global",
-      "Publicaciones marcadas para seguimiento o revisión operativa."
+      "Publicaciones marcadas para seguimiento, control o revisión."
     );
 
     return;
@@ -340,28 +349,27 @@ function actualizarTextosPrincipalesPorRol(usuario) {
 
   if (usuarioEsEmpresa()) {
     if (tituloPagina) {
-      tituloPagina.textContent = "Panel de empresa";
+      tituloPagina.textContent = `Bienvenido, ${usuario.nombre}`;
     }
 
     if (subtituloPagina) {
       subtituloPagina.textContent =
-        "Consulta demandas de candidatos, detecta perfiles disponibles y organiza las oportunidades que pueden interesar a tu empresa.";
+        "Consulta demandas de candidatos, identifica talento disponible y organiza tu selección profesional de forma ágil.";
     }
 
     if (tituloControl) {
-      tituloControl.textContent = "Demandas de candidatos";
+      tituloControl.textContent = "";
     }
 
     if (subtituloControl) {
-      subtituloControl.textContent =
-        "Como empresa, el dashboard se centra en demandas publicadas por candidatos para facilitar procesos de búsqueda y contacto.";
+      subtituloControl.textContent = "";
     }
 
     actualizarTitulosColumnas(
       "Demandas disponibles",
-      "Candidatos y perfiles disponibles que todavía no forman parte de tu selección.",
+      "Perfiles y demandas publicadas por candidatos que aún no has seleccionado.",
       "Demandas seleccionadas",
-      "Demandas guardadas para seguimiento, contacto o comparación."
+      "Demandas guardadas para seguimiento, comparación o contacto."
     );
 
     return;
@@ -369,7 +377,7 @@ function actualizarTextosPrincipalesPorRol(usuario) {
 
   if (usuarioEsCandidato()) {
     if (tituloPagina) {
-      tituloPagina.textContent = "Panel de candidato";
+      tituloPagina.textContent = "Oportunidades para tu perfil";
     }
 
     if (subtituloPagina) {
@@ -378,26 +386,22 @@ function actualizarTextosPrincipalesPorRol(usuario) {
     }
 
     if (tituloControl) {
-      tituloControl.textContent = "Ofertas disponibles";
+      tituloControl.textContent = "";
     }
 
     if (subtituloControl) {
-      subtituloControl.textContent =
-        "Como candidato, el dashboard se centra en ofertas publicadas por empresas para que puedas revisar y seleccionar oportunidades.";
+      subtituloControl.textContent = "";
     }
 
     actualizarTitulosColumnas(
       "Ofertas disponibles",
-      "Ofertas activas que todavía no forman parte de tu selección.",
+      "Ofertas activas publicadas por empresas que todavía no forman parte de tu selección.",
       "Ofertas seleccionadas",
-      "Ofertas guardadas para seguimiento, revisión o comparación."
+      "Oportunidades guardadas para seguimiento, revisión o comparación."
     );
   }
 }
 
-/*
-  Actualiza los textos de las dos columnas del dashboard.
-*/
 function actualizarTitulosColumnas(
   tituloDisponibles,
   subtituloDisponibles,
@@ -436,9 +440,54 @@ function actualizarTitulosColumnas(
   }
 }
 
-/*
-  Ajusta las tarjetas KPI según el rol.
-*/
+function configurarPanelSuperiorPorRol(usuario) {
+  if (usuarioEsCandidato()) {
+    insertarPanelBienvenidaCandidato(usuario);
+    return;
+  }
+
+  eliminarPanelSuperiorDashboard();
+}
+
+function insertarPanelBienvenidaCandidato(usuario) {
+  eliminarPanelSuperiorDashboard();
+
+  const intro = document.querySelector(".page-intro");
+  const tituloPagina = document.querySelector(".page-heading");
+
+  if (!intro || !tituloPagina) {
+    return;
+  }
+
+  let bienvenida = document.getElementById("bienvenida-candidato-dashboard");
+
+  if (!bienvenida) {
+    bienvenida = document.createElement("div");
+    bienvenida.id = "bienvenida-candidato-dashboard";
+    bienvenida.className = "dashboard-welcome-line";
+    tituloPagina.insertAdjacentElement("beforebegin", bienvenida);
+  }
+
+  bienvenida.innerHTML = `
+    <span class="dashboard-welcome-eyebrow">Área personal</span>
+    <strong>Bienvenido, ${escaparHTML(usuario.nombre)}</strong>
+  `;
+}
+
+function eliminarPanelSuperiorDashboard() {
+  const panel = document.getElementById("panel-contexto-rol-dashboard");
+
+  if (panel) {
+    panel.remove();
+  }
+
+  const bienvenida = document.getElementById("bienvenida-candidato-dashboard");
+
+  if (bienvenida) {
+    bienvenida.remove();
+  }
+}
+
 function actualizarTarjetasResumenPorRol() {
   const tarjetaUsuarios = totalUsuariosElemento?.closest(".col-12");
 
@@ -454,15 +503,15 @@ function actualizarTarjetasResumenPorRol() {
   ocultarTarjeta(tarjetaUsuarios);
 
   if (usuarioEsEmpresa()) {
-    actualizarTituloTarjeta(totalOfertasElemento, "Ofertas del sistema");
-    actualizarTituloTarjeta(totalDemandasElemento, "Demandas de candidatos");
+    actualizarTituloTarjeta(totalOfertasElemento, "Demandas disponibles");
+    actualizarTituloTarjeta(totalDemandasElemento, "Candidatos activos");
     actualizarTituloTarjeta(totalSeleccionadasElemento, "Demandas seleccionadas");
     return;
   }
 
   if (usuarioEsCandidato()) {
     actualizarTituloTarjeta(totalOfertasElemento, "Ofertas de empresas");
-    actualizarTituloTarjeta(totalDemandasElemento, "Demandas del sistema");
+    actualizarTituloTarjeta(totalDemandasElemento, "Empresas activas");
     actualizarTituloTarjeta(totalSeleccionadasElemento, "Ofertas seleccionadas");
   }
 }
@@ -494,63 +543,6 @@ function mostrarTarjeta(tarjeta) {
   tarjeta.setAttribute("aria-hidden", "false");
 }
 
-/*
-  Inserta un panel contextual para que la pantalla tenga sentido según el usuario.
-*/
-function insertarPanelContextoRol(usuario) {
-  const intro = document.querySelector(".page-intro");
-
-  if (!intro) {
-    return;
-  }
-
-  let panel = document.getElementById("panel-contexto-rol-dashboard");
-
-  if (!panel) {
-    panel = document.createElement("section");
-    panel.id = "panel-contexto-rol-dashboard";
-    panel.className = "role-context-panel";
-    intro.insertAdjacentElement("afterend", panel);
-  }
-
-  const etiquetaRol = obtenerEtiquetaRol(usuario.rol);
-  const nombre = `${usuario.nombre} ${usuario.apellidos}`;
-
-  let titulo = "Vista personalizada";
-  let descripcion = "La información se adapta al rol activo de la sesión.";
-
-  if (usuarioEsAdmin()) {
-    titulo = "Vista de administración global";
-    descripcion =
-      "Tienes acceso completo a la actividad general de JobConnect: usuarios, ofertas, demandas, selección activa y datos sincronizados en tiempo real.";
-  } else if (usuarioEsEmpresa()) {
-    titulo = "Vista operativa para empresa";
-    descripcion =
-      "El panel prioriza demandas de candidatos y perfiles disponibles. La gestión de usuarios queda reservada al administrador.";
-  } else if (usuarioEsCandidato()) {
-    titulo = "Vista profesional para candidato";
-    descripcion =
-      "El panel prioriza ofertas disponibles publicadas por empresas. La gestión global queda oculta para mantener una experiencia adecuada a tu rol.";
-  }
-
-  panel.innerHTML = `
-    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-      <div>
-        <span class="role-chip mb-3">${escaparHTML(etiquetaRol)}</span>
-        <h2 class="h4">${escaparHTML(titulo)}</h2>
-        <p>${escaparHTML(descripcion)}</p>
-      </div>
-      <div class="text-end">
-        <p class="mb-1 text-muted">Sesión activa</p>
-        <strong>${escaparHTML(nombre)}</strong>
-      </div>
-    </div>
-  `;
-}
-
-/*
-  Actualiza el texto de estado general.
-*/
 function actualizarEstadoDashboard(texto) {
   if (!estadoDashboard) {
     return;
@@ -559,9 +551,6 @@ function actualizarEstadoDashboard(texto) {
   estadoDashboard.textContent = texto;
 }
 
-/*
-  Programa un repintado evitando llamadas duplicadas por eventos Socket.io seguidos.
-*/
 function programarRepintadoDashboard() {
   if (refrescoDashboardTimeoutId) {
     window.clearTimeout(refrescoDashboardTimeoutId);
@@ -576,12 +565,9 @@ function programarRepintadoDashboard() {
   }, 120);
 }
 
-/*
-  Configura Socket.io para actualizar el dashboard en tiempo real.
-*/
 function configurarSocketDashboard() {
   if (typeof window.io !== "function") {
-    actualizarEstadoDashboard("Socket.io no está disponible. El dashboard funcionará con actualización manual.");
+    actualizarEstadoDashboard("Socket.io no está disponible. El panel funcionará con actualización manual.");
     return;
   }
 
@@ -592,7 +578,7 @@ function configurarSocketDashboard() {
   socketDashboard = window.io("http://localhost:4000");
 
   socketDashboard.on("connect", () => {
-    actualizarEstadoDashboard("Dashboard conectado en tiempo real.");
+    actualizarEstadoDashboard("Panel conectado en tiempo real.");
   });
 
   socketDashboard.on("disconnect", () => {
@@ -604,9 +590,6 @@ function configurarSocketDashboard() {
   socketDashboard.on("seleccionadas:actualizadas", programarRepintadoDashboard);
 }
 
-/*
-  Configura los botones de filtro.
-*/
 function configurarFiltros() {
   botonesFiltro.forEach((boton) => {
     boton.addEventListener("click", async () => {
@@ -629,9 +612,6 @@ function configurarFiltros() {
   });
 }
 
-/*
-  Cambia el estilo de los botones según el filtro activo.
-*/
 function actualizarEstadoVisualFiltros() {
   botonesFiltro.forEach((boton) => {
     const filtroBoton = boton.dataset.filtro;
@@ -657,9 +637,6 @@ function actualizarEstadoVisualFiltros() {
   });
 }
 
-/*
-  Configura drag and drop en ambas columnas.
-*/
 function configurarZonasDrop() {
   [zonaDisponibles, zonaSeleccionadas].forEach((zona) => {
     zona.addEventListener("dragover", (evento) => {
@@ -687,7 +664,7 @@ function configurarZonasDrop() {
     try {
       await quitarSeleccionadaBackend(id);
       await repintarDashboard();
-      mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado general.", "success");
+      mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado principal.", "success");
     } catch (error) {
       mostrarAlerta(mensajeDashboard, error.message, "danger");
     }
@@ -706,16 +683,13 @@ function configurarZonasDrop() {
     try {
       await anadirSeleccionadaBackend(id);
       await repintarDashboard();
-      mostrarAlerta(mensajeDashboard, "Publicación añadida a la selección del usuario.", "success");
+      mostrarAlerta(mensajeDashboard, "Publicación añadida a la selección.", "success");
     } catch (error) {
       mostrarAlerta(mensajeDashboard, error.message, "danger");
     }
   });
 }
 
-/*
-  Normaliza valores para mostrarlos de forma segura.
-*/
 function escaparHTML(valor) {
   return String(valor ?? "")
     .replaceAll("&", "&amp;")
@@ -725,35 +699,22 @@ function escaparHTML(valor) {
     .replaceAll("'", "&#039;");
 }
 
-/*
-  Mueve una publicación al bloque de seleccionadas usando doble clic.
-*/
-async function moverASeleccionadas(idPublicacion) {
-  try {
-    await anadirSeleccionadaBackend(idPublicacion);
-    await repintarDashboard();
-    mostrarAlerta(mensajeDashboard, "Publicación añadida a la selección del usuario.", "success");
-  } catch (error) {
-    mostrarAlerta(mensajeDashboard, error.message, "danger");
-  }
+function moverASeleccionadas(idPublicacion) {
+  return anadirSeleccionadaBackend(idPublicacion);
 }
 
-/*
-  Devuelve una publicación al bloque de disponibles.
-*/
-async function moverADisponibles(idPublicacion) {
-  try {
-    await quitarSeleccionadaBackend(idPublicacion);
-    await repintarDashboard();
-    mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado general.", "success");
-  } catch (error) {
-    mostrarAlerta(mensajeDashboard, error.message, "danger");
-  }
+function moverADisponibles(idPublicacion) {
+  return quitarSeleccionadaBackend(idPublicacion);
 }
 
-/*
-  Repinta todo el dashboard.
-*/
+function contarEntidadesUnicas(publicaciones) {
+  const valores = publicaciones.map((publicacion) => {
+    return String(publicacion.emailContacto || publicacion.autor || "").trim().toLowerCase();
+  }).filter(Boolean);
+
+  return new Set(valores).size;
+}
+
 async function repintarDashboard() {
   const [resumen, disponibles, seleccionadas] = await Promise.all([
     cargarResumenDashboard(),
@@ -776,25 +737,24 @@ async function repintarDashboard() {
   }
 }
 
-/*
-  Pinta los KPIs superiores.
-*/
 function pintarResumen(resumen) {
-  totalOfertasElemento.textContent = resumen.totalOfertas;
-  totalDemandasElemento.textContent = resumen.totalDemandas;
-
   if (usuarioEsAdmin()) {
+    totalOfertasElemento.textContent = resumen.totalOfertas;
+    totalDemandasElemento.textContent = resumen.totalDemandas;
     totalUsuariosElemento.textContent = resumen.totalUsuarios;
     totalSeleccionadasElemento.textContent = resumen.totalSeleccionadas;
     return;
   }
 
-  totalSeleccionadasElemento.textContent = publicacionesSeleccionadasCache.length;
+  const totalVisibles = publicacionesDisponiblesCache.length;
+  const totalUnicos = contarEntidadesUnicas(publicacionesDisponiblesCache);
+  const totalSeleccionadas = publicacionesSeleccionadasCache.length;
+
+  totalOfertasElemento.textContent = totalVisibles;
+  totalDemandasElemento.textContent = totalUnicos;
+  totalSeleccionadasElemento.textContent = totalSeleccionadas;
 }
 
-/*
-  Devuelve las publicaciones disponibles según el filtro activo.
-*/
 function obtenerDisponiblesFiltradas() {
   return publicacionesDisponiblesCache.filter((publicacion) => {
     if (filtroActual === "todas") {
@@ -805,9 +765,6 @@ function obtenerDisponiblesFiltradas() {
   });
 }
 
-/*
-  Actualiza los contadores internos de cada columna.
-*/
 function actualizarContadoresColumnas(disponiblesFiltradas, seleccionadas) {
   if (contadorDisponibles) {
     let textoFiltro = "disponibles";
@@ -836,9 +793,6 @@ function actualizarContadoresColumnas(disponiblesFiltradas, seleccionadas) {
   }
 }
 
-/*
-  Pinta las tarjetas de ambas zonas.
-*/
 function pintarTarjetas() {
   const disponiblesFiltradas = obtenerDisponiblesFiltradas();
 
@@ -859,9 +813,6 @@ function pintarTarjetas() {
   );
 }
 
-/*
-  Texto de estado vacío según el filtro activo.
-*/
 function obtenerTextoVacioDisponibles() {
   if (usuarioEsEmpresa()) {
     return "No hay demandas de candidatos disponibles en este momento.";
@@ -882,9 +833,6 @@ function obtenerTextoVacioDisponibles() {
   return "No hay publicaciones disponibles en este momento.";
 }
 
-/*
-  Texto vacío de la zona de seleccionadas.
-*/
 function obtenerTextoVacioSeleccionadas() {
   if (usuarioEsEmpresa()) {
     return "Todavía no hay demandas seleccionadas. Arrastra aquí una demanda o usa doble clic sobre una tarjeta disponible.";
@@ -897,9 +845,6 @@ function obtenerTextoVacioSeleccionadas() {
   return "Todavía no hay publicaciones seleccionadas. Arrastra aquí una tarjeta o usa doble clic sobre una publicación disponible.";
 }
 
-/*
-  Renderiza un estado vacío más integrado que una alerta simple.
-*/
 function renderizarEstadoVacio(contenedor, texto) {
   contenedor.innerHTML = `
     <div class="col-12">
@@ -911,9 +856,6 @@ function renderizarEstadoVacio(contenedor, texto) {
   `;
 }
 
-/*
-  Crea visualmente las tarjetas HTML dentro del contenedor indicado.
-*/
 function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
   if (publicaciones.length === 0) {
     renderizarEstadoVacio(contenedor, textoVacio);
@@ -985,10 +927,18 @@ function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
     });
 
     tarjeta.addEventListener("dblclick", async () => {
-      if (origen === "disponibles") {
-        await moverASeleccionadas(publicacion.id);
-      } else {
-        await moverADisponibles(publicacion.id);
+      try {
+        if (origen === "disponibles") {
+          await moverASeleccionadas(publicacion.id);
+          mostrarAlerta(mensajeDashboard, "Publicación añadida a la selección.", "success");
+        } else {
+          await moverADisponibles(publicacion.id);
+          mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado principal.", "success");
+        }
+
+        await repintarDashboard();
+      } catch (error) {
+        mostrarAlerta(mensajeDashboard, error.message, "danger");
       }
     });
 
@@ -1001,7 +951,14 @@ function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
       botonCerrar.addEventListener("click", async (evento) => {
         evento.preventDefault();
         evento.stopPropagation();
-        await moverADisponibles(publicacion.id);
+
+        try {
+          await moverADisponibles(publicacion.id);
+          await repintarDashboard();
+          mostrarAlerta(mensajeDashboard, "Publicación devuelta al listado principal.", "success");
+        } catch (error) {
+          mostrarAlerta(mensajeDashboard, error.message, "danger");
+        }
       });
     }
 
@@ -1009,8 +966,4 @@ function renderizarTarjetas(contenedor, publicaciones, textoVacio, origen) {
   });
 }
 
-/*
-  Cuando el DOM ya está cargado,
-  arrancamos toda la lógica del dashboard.
-*/
 window.addEventListener("DOMContentLoaded", inicializarDashboard);

@@ -155,8 +155,23 @@ function adaptarPaginaUsuariosAdmin() {
     return;
   }
 
-  insertarPanelContextoAdmin(usuarioActivo);
+  eliminarPanelContextoAdminUsuarios();
   reforzarFormularioAdmin();
+}
+
+/*
+  Elimina el panel contextual de administración.
+
+  La pantalla de usuarios ya se entiende por su título, formulario,
+  buscador, filtros y tabla. Mantener un panel adicional repetía
+  información y ocupaba espacio innecesario.
+*/
+function eliminarPanelContextoAdminUsuarios() {
+  const panel = document.getElementById("panel-contexto-admin-usuarios");
+
+  if (panel) {
+    panel.remove();
+  }
 }
 
 /*

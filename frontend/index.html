@@ -2,7 +2,62 @@
 <html lang="es">
 
 <head>
-  <!-- Configuración básica del documento -->
+      <style id="jc-nav-boot-style">
+    html.jc-nav-boot:not(.jc-nav-ready) body {
+      visibility: hidden !important;
+    }
+  </style>
+
+  <script id="jc-nav-boot">
+    (function () {
+      document.documentElement.classList.add("jc-nav-boot");
+
+      /*
+        Fallback de seguridad:
+        si por cualquier motivo el módulo JS no llega a marcar la navbar como preparada,
+        se muestra la página igualmente para no dejar la pantalla en blanco.
+      */
+      window.setTimeout(function () {
+        document.documentElement.classList.add("jc-nav-ready");
+      }, 1400);
+    })();
+  </script>
+
+<script id="jc-role-preload">
+    (function () {
+      const USUARIO_STORAGE_KEY = "jobconnect_usuario";
+      const roles = ["jc-role-admin", "jc-role-empresa", "jc-role-candidato", "jc-role-sin-sesion"];
+
+      function aplicarRol(rol) {
+        document.documentElement.classList.remove(...roles);
+
+        const rolSeguro = String(rol || "").trim().toLowerCase();
+
+        if (rolSeguro === "admin" || rolSeguro === "empresa" || rolSeguro === "candidato") {
+          document.documentElement.classList.add("jc-role-" + rolSeguro);
+          return;
+        }
+
+        document.documentElement.classList.add("jc-role-sin-sesion");
+      }
+
+      try {
+        const textoUsuario = localStorage.getItem(USUARIO_STORAGE_KEY);
+
+        if (!textoUsuario) {
+          aplicarRol("sin-sesion");
+          return;
+        }
+
+        const usuario = JSON.parse(textoUsuario);
+        aplicarRol(usuario && usuario.rol ? usuario.rol : "sin-sesion");
+      } catch (error) {
+        aplicarRol("sin-sesion");
+      }
+    })();
+  </script>
+
+<!-- Configuración básica del documento -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -608,8 +663,8 @@
       </p>
 
       <div class="landing-actions">
-        <a href="login.html" class="btn btn-primary btn-lg">Iniciar sesión</a>
-        <a href="dashboard.html" class="btn btn-outline-primary btn-lg">Ver dashboard</a>
+        <a href="login.html" class="btn btn-primary btn-lg home-guest-only">Iniciar sesión</a>
+        <a href="dashboard.html" class="btn btn-outline-primary btn-lg home-auth-only">Ver dashboard</a>
       </div>
 
       <div class="landing-tech-row">
