@@ -1,4 +1,25 @@
-const GRAPHQL_URL = "http://localhost:4000/graphql";
+export function obtenerBackendBaseUrl() {
+  const hostname = window.location.hostname;
+  const puerto = window.location.port;
+  const esLocal = hostname === "localhost" || hostname === "127.0.0.1";
+
+  /*
+    Flujo local habitual:
+    - frontend: http://localhost:5500
+    - backend:  http://localhost:4000
+  */
+  if (esLocal && puerto !== "4000") {
+    return "http://localhost:4000";
+  }
+
+  /*
+    Flujo CodeSandbox / backend sirviendo frontend:
+    - frontend y backend comparten el mismo origen.
+  */
+  return window.location.origin;
+}
+
+const GRAPHQL_URL = `${obtenerBackendBaseUrl()}/graphql`;
 const TOKEN_STORAGE_KEY = "jobconnect_token";
 const USUARIO_STORAGE_KEY = "jobconnect_usuario";
 

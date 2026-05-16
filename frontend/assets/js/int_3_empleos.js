@@ -1,4 +1,5 @@
 import {
+  obtenerBackendBaseUrl,
   graphqlRequest,
   obtenerTokenAdminObligatorio,
   obtenerTokenSesionObligatorio,
@@ -421,7 +422,7 @@ function configurarSocketPublicaciones() {
     return;
   }
 
-  socketPublicaciones = window.io("http://localhost:4000");
+  socketPublicaciones = window.io(obtenerBackendBaseUrl());
 
   socketPublicaciones.on("publicaciones:actualizadas", programarRepintadoPublicaciones);
 }
