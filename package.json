@@ -1,0 +1,17 @@
+{
+  "name": "fullstackattack-producto4-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Arranque raíz para CodeSandbox del Producto 4 FullStackAttack",
+  "type": "module",
+  "scripts": {
+    "prestart": "npm --prefix backend install",
+    "start": "npm --prefix backend start",
+    "dev": "npm --prefix backend run dev",
+    "seed": "npm --prefix backend run seed",
+    "check": "node --check backend/src/index.js && node --check frontend/assets/js/api.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

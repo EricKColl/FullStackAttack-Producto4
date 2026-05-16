@@ -15,6 +15,8 @@
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express5';
 
@@ -31,6 +33,11 @@ import { inicializarSocketIo } from './socket.js';
  * Instancia del servidor Express.
  * Se configura dentro de startServer() tras conectar a Mongo y arrancar Apollo.
  */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..', '..');
+const frontendPath = path.join(projectRoot, 'frontend');
+
 const app = express();
 const httpServer = http.createServer(app);
 
@@ -80,25 +87,35 @@ async function startServer() {
       })
     );
 
-    // 6. Endpoint raíz: confirma que el servidor está vivo sin tocar GraphQL.
+    // 6. Servir el frontend desde el mismo servidor.
+    //    Esto facilita la ejecución en CodeSandbox porque backend y frontend
+    //    comparten origen, puerto y dominio de preview.
+    app.use(express.static(frontendPath));
+
     app.get('/', (req, res) => {
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+
+    // 7. Endpoint técnico de estado del backend.
+    app.get('/api/status', (req, res) => {
       res.json({
         service: 'JobConnect Backend',
         status: 'ok',
         graphql: '/graphql',
+        frontend: '/',
         environment: env.nodeEnv,
       });
     });
 
-    // 7. Middleware de 404 para rutas no definidas.
+    // 8. Middleware de 404 para rutas no definidas.
     //    Debe ir DESPUÉS de las rutas válidas.
     app.use(notFoundHandler);
 
-    // 8. Middleware centralizado de errores.
+    // 9. Middleware centralizado de errores.
     //    Debe ir el ÚLTIMO middleware.
     app.use(errorHandler);
 
-    // 9. Poner el servidor a escuchar.
+    // 10. Poner el servidor a escuchar.
     inicializarSocketIo(httpServer);
 
     httpServer.listen(env.port, () => {

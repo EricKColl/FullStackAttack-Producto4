@@ -1,4 +1,5 @@
 import {
+  obtenerBackendBaseUrl,
   graphqlRequest,
   obtenerTokenSesionObligatorio
 } from "./api.js";
@@ -575,7 +576,7 @@ function configurarSocketDashboard() {
     return;
   }
 
-  socketDashboard = window.io("http://localhost:4000");
+  socketDashboard = window.io(obtenerBackendBaseUrl());
 
   socketDashboard.on("connect", () => {
     actualizarEstadoDashboard("Panel conectado en tiempo real.");
