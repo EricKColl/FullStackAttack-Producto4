@@ -1,8 +1,20 @@
 import {
   graphqlRequest,
-  obtenerTokenAdminObligatorio
+  obtenerTokenSesionObligatorio
 } from "./api.js";
-import { capitalizarTexto, configurarBotonCerrarSesion, mostrarAlerta, pintarUsuarioEnNavbar } from "./ui.js";
+import {
+  capitalizarTexto,
+  configurarBotonCerrarSesion,
+  mostrarAlerta,
+  obtenerEtiquetaRol,
+  obtenerRolUsuarioActivo,
+  obtenerUsuarioActivo,
+  pintarUsuarioEnNavbar,
+  protegerPantallaConSesion,
+  usuarioEsAdmin,
+  usuarioEsCandidato,
+  usuarioEsEmpresa
+} from "./ui.js";
 
 const RESUMEN_DASHBOARD = `
   query ResumenDashboard {
@@ -66,9 +78,11 @@ const QUITAR_SELECCIONADA = `
 `;
 
 /*
-  Clave usada para recordar el filtro del dashboard.
+  Clave base usada para recordar el filtro del dashboard.
+  Se completa con el rol para evitar que un filtro de admin afecte
+  después a empresa o candidato.
 */
-const CLAVE_FILTRO_DASHBOARD = "jobconnect_dashboard_filtro";
+const CLAVE_FILTRO_DASHBOARD_BASE = "jobconnect_dashboard_filtro";
 
 /*
   Elementos de resumen.
@@ -121,7 +135,7 @@ async function cargarPublicacionesSeleccionadas() {
 }
 
 async function anadirSeleccionadaBackend(idPublicacion) {
-  const token = obtenerTokenAdminObligatorio();
+  const token = obtenerTokenSesionObligatorio();
 
   const data = await graphqlRequest(
     ANADIR_SELECCIONADA,
@@ -133,7 +147,7 @@ async function anadirSeleccionadaBackend(idPublicacion) {
 }
 
 async function quitarSeleccionadaBackend(idPublicacion) {
-  const token = obtenerTokenAdminObligatorio();
+  const token = obtenerTokenSesionObligatorio();
 
   const data = await graphqlRequest(
     QUITAR_SELECCIONADA,
@@ -150,7 +164,14 @@ async function quitarSeleccionadaBackend(idPublicacion) {
 async function inicializarDashboard() {
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
+
+  if (!protegerPantallaConSesion()) {
+    return;
+  }
+
+  adaptarDashboardAlRol();
   recuperarFiltroGuardado();
+  normalizarFiltroActualPorRol();
   actualizarEstadoVisualFiltros();
   configurarFiltros();
   configurarZonasDrop();
@@ -165,10 +186,18 @@ async function inicializarDashboard() {
 }
 
 /*
+  Devuelve la clave de filtro separada por rol.
+*/
+function obtenerClaveFiltroDashboard() {
+  const rol = obtenerRolUsuarioActivo() || "sin-sesion";
+  return `${CLAVE_FILTRO_DASHBOARD_BASE}_${rol}`;
+}
+
+/*
   Recupera el filtro guardado.
 */
 function recuperarFiltroGuardado() {
-  const filtroGuardado = localStorage.getItem(CLAVE_FILTRO_DASHBOARD);
+  const filtroGuardado = localStorage.getItem(obtenerClaveFiltroDashboard());
 
   if (
     filtroGuardado === "todas"
@@ -183,7 +212,340 @@ function recuperarFiltroGuardado() {
   Guarda el filtro actual.
 */
 function guardarFiltroActual() {
-  localStorage.setItem(CLAVE_FILTRO_DASHBOARD, filtroActual);
+  localStorage.setItem(obtenerClaveFiltroDashboard(), filtroActual);
+}
+
+/*
+  Devuelve el filtro principal según el rol.
+*/
+function obtenerFiltroPrincipalPorRol() {
+  if (usuarioEsEmpresa()) {
+    return "demanda";
+  }
+
+  if (usuarioEsCandidato()) {
+    return "oferta";
+  }
+
+  return "todas";
+}
+
+/*
+  Comprueba si un filtro es válido para el rol actual.
+*/
+function filtroPermitidoParaRol(filtro) {
+  if (usuarioEsAdmin()) {
+    return filtro === "todas" || filtro === "oferta" || filtro === "demanda";
+  }
+
+  if (usuarioEsEmpresa()) {
+    return filtro === "demanda";
+  }
+
+  if (usuarioEsCandidato()) {
+    return filtro === "oferta";
+  }
+
+  return false;
+}
+
+/*
+  Corrige el filtro si no corresponde al rol activo.
+*/
+function normalizarFiltroActualPorRol() {
+  if (!filtroPermitidoParaRol(filtroActual)) {
+    filtroActual = obtenerFiltroPrincipalPorRol();
+    guardarFiltroActual();
+  }
+}
+
+/*
+  Devuelve si una publicación debe ser visible para el rol activo.
+*/
+function publicacionVisibleParaRol(publicacion) {
+  if (usuarioEsAdmin()) {
+    return true;
+  }
+
+  if (usuarioEsEmpresa()) {
+    return publicacion.tipo === "demanda";
+  }
+
+  if (usuarioEsCandidato()) {
+    return publicacion.tipo === "oferta";
+  }
+
+  return false;
+}
+
+/*
+  Filtra publicaciones según el rol activo.
+*/
+function filtrarPublicacionesPorRol(publicaciones) {
+  return publicaciones.filter(publicacionVisibleParaRol);
+}
+
+/*
+  Crea o actualiza un panel superior explicando el contexto del rol.
+*/
+function adaptarDashboardAlRol() {
+  const usuario = obtenerUsuarioActivo();
+
+  if (!usuario) {
+    return;
+  }
+
+  actualizarTextosPrincipalesPorRol(usuario);
+  actualizarTarjetasResumenPorRol();
+  insertarPanelContextoRol(usuario);
+}
+
+/*
+  Cambia los textos principales del dashboard.
+*/
+function actualizarTextosPrincipalesPorRol(usuario) {
+  const tituloPagina = document.querySelector(".page-heading");
+  const subtituloPagina = document.querySelector(".page-subtitle");
+  const tituloControl = document.querySelector(".section-card .section-title");
+  const subtituloControl = document.querySelector(".section-card .section-subtitle");
+
+  if (usuarioEsAdmin()) {
+    if (tituloPagina) {
+      tituloPagina.textContent = "Dashboard administrativo";
+    }
+
+    if (subtituloPagina) {
+      subtituloPagina.textContent =
+        "Supervisa el estado global de JobConnect, revisa usuarios, publicaciones, selección activa y sincronización en tiempo real.";
+    }
+
+    if (tituloControl) {
+      tituloControl.textContent = "Control global de publicaciones";
+    }
+
+    if (subtituloControl) {
+      subtituloControl.textContent =
+        "Filtra ofertas y demandas, revisa la actividad general y organiza publicaciones seleccionadas desde una visión completa de administrador.";
+    }
+
+    actualizarTitulosColumnas(
+      "Publicaciones disponibles",
+      "Ofertas y demandas todavía disponibles en el sistema.",
+      "Selección global",
+      "Publicaciones marcadas para seguimiento o revisión operativa."
+    );
+
+    return;
+  }
+
+  if (usuarioEsEmpresa()) {
+    if (tituloPagina) {
+      tituloPagina.textContent = "Panel de empresa";
+    }
+
+    if (subtituloPagina) {
+      subtituloPagina.textContent =
+        "Consulta demandas de candidatos, detecta perfiles disponibles y organiza las oportunidades que pueden interesar a tu empresa.";
+    }
+
+    if (tituloControl) {
+      tituloControl.textContent = "Demandas de candidatos";
+    }
+
+    if (subtituloControl) {
+      subtituloControl.textContent =
+        "Como empresa, el dashboard se centra en demandas publicadas por candidatos para facilitar procesos de búsqueda y contacto.";
+    }
+
+    actualizarTitulosColumnas(
+      "Demandas disponibles",
+      "Candidatos y perfiles disponibles que todavía no forman parte de tu selección.",
+      "Demandas seleccionadas",
+      "Demandas guardadas para seguimiento, contacto o comparación."
+    );
+
+    return;
+  }
+
+  if (usuarioEsCandidato()) {
+    if (tituloPagina) {
+      tituloPagina.textContent = "Panel de candidato";
+    }
+
+    if (subtituloPagina) {
+      subtituloPagina.textContent =
+        "Consulta ofertas disponibles, guarda oportunidades relevantes y mantén tu selección profesional organizada.";
+    }
+
+    if (tituloControl) {
+      tituloControl.textContent = "Ofertas disponibles";
+    }
+
+    if (subtituloControl) {
+      subtituloControl.textContent =
+        "Como candidato, el dashboard se centra en ofertas publicadas por empresas para que puedas revisar y seleccionar oportunidades.";
+    }
+
+    actualizarTitulosColumnas(
+      "Ofertas disponibles",
+      "Ofertas activas que todavía no forman parte de tu selección.",
+      "Ofertas seleccionadas",
+      "Ofertas guardadas para seguimiento, revisión o comparación."
+    );
+  }
+}
+
+/*
+  Actualiza los textos de las dos columnas del dashboard.
+*/
+function actualizarTitulosColumnas(
+  tituloDisponibles,
+  subtituloDisponibles,
+  tituloSeleccionadas,
+  subtituloSeleccionadas
+) {
+  const bloques = document.querySelectorAll(".drop-zone .section-heading-block");
+
+  const bloqueDisponibles = bloques[0];
+  const bloqueSeleccionadas = bloques[1];
+
+  if (bloqueDisponibles) {
+    const titulo = bloqueDisponibles.querySelector(".section-title");
+    const subtitulo = bloqueDisponibles.querySelector(".section-subtitle");
+
+    if (titulo) {
+      titulo.textContent = tituloDisponibles;
+    }
+
+    if (subtitulo) {
+      subtitulo.textContent = subtituloDisponibles;
+    }
+  }
+
+  if (bloqueSeleccionadas) {
+    const titulo = bloqueSeleccionadas.querySelector(".section-title");
+    const subtitulo = bloqueSeleccionadas.querySelector(".section-subtitle");
+
+    if (titulo) {
+      titulo.textContent = tituloSeleccionadas;
+    }
+
+    if (subtitulo) {
+      subtitulo.textContent = subtituloSeleccionadas;
+    }
+  }
+}
+
+/*
+  Ajusta las tarjetas KPI según el rol.
+*/
+function actualizarTarjetasResumenPorRol() {
+  const tarjetaUsuarios = totalUsuariosElemento?.closest(".col-12");
+
+  if (usuarioEsAdmin()) {
+    mostrarTarjeta(tarjetaUsuarios);
+    actualizarTituloTarjeta(totalOfertasElemento, "Ofertas registradas");
+    actualizarTituloTarjeta(totalDemandasElemento, "Demandas registradas");
+    actualizarTituloTarjeta(totalUsuariosElemento, "Usuarios registrados");
+    actualizarTituloTarjeta(totalSeleccionadasElemento, "Selección activa");
+    return;
+  }
+
+  ocultarTarjeta(tarjetaUsuarios);
+
+  if (usuarioEsEmpresa()) {
+    actualizarTituloTarjeta(totalOfertasElemento, "Ofertas del sistema");
+    actualizarTituloTarjeta(totalDemandasElemento, "Demandas de candidatos");
+    actualizarTituloTarjeta(totalSeleccionadasElemento, "Demandas seleccionadas");
+    return;
+  }
+
+  if (usuarioEsCandidato()) {
+    actualizarTituloTarjeta(totalOfertasElemento, "Ofertas de empresas");
+    actualizarTituloTarjeta(totalDemandasElemento, "Demandas del sistema");
+    actualizarTituloTarjeta(totalSeleccionadasElemento, "Ofertas seleccionadas");
+  }
+}
+
+function actualizarTituloTarjeta(elementoNumero, texto) {
+  const tarjeta = elementoNumero?.closest(".card-body");
+  const titulo = tarjeta?.querySelector("h2");
+
+  if (titulo) {
+    titulo.textContent = texto;
+  }
+}
+
+function ocultarTarjeta(tarjeta) {
+  if (!tarjeta) {
+    return;
+  }
+
+  tarjeta.classList.add("d-none");
+  tarjeta.setAttribute("aria-hidden", "true");
+}
+
+function mostrarTarjeta(tarjeta) {
+  if (!tarjeta) {
+    return;
+  }
+
+  tarjeta.classList.remove("d-none");
+  tarjeta.setAttribute("aria-hidden", "false");
+}
+
+/*
+  Inserta un panel contextual para que la pantalla tenga sentido según el usuario.
+*/
+function insertarPanelContextoRol(usuario) {
+  const intro = document.querySelector(".page-intro");
+
+  if (!intro) {
+    return;
+  }
+
+  let panel = document.getElementById("panel-contexto-rol-dashboard");
+
+  if (!panel) {
+    panel = document.createElement("section");
+    panel.id = "panel-contexto-rol-dashboard";
+    panel.className = "role-context-panel";
+    intro.insertAdjacentElement("afterend", panel);
+  }
+
+  const etiquetaRol = obtenerEtiquetaRol(usuario.rol);
+  const nombre = `${usuario.nombre} ${usuario.apellidos}`;
+
+  let titulo = "Vista personalizada";
+  let descripcion = "La información se adapta al rol activo de la sesión.";
+
+  if (usuarioEsAdmin()) {
+    titulo = "Vista de administración global";
+    descripcion =
+      "Tienes acceso completo a la actividad general de JobConnect: usuarios, ofertas, demandas, selección activa y datos sincronizados en tiempo real.";
+  } else if (usuarioEsEmpresa()) {
+    titulo = "Vista operativa para empresa";
+    descripcion =
+      "El panel prioriza demandas de candidatos y perfiles disponibles. La gestión de usuarios queda reservada al administrador.";
+  } else if (usuarioEsCandidato()) {
+    titulo = "Vista profesional para candidato";
+    descripcion =
+      "El panel prioriza ofertas disponibles publicadas por empresas. La gestión global queda oculta para mantener una experiencia adecuada a tu rol.";
+  }
+
+  panel.innerHTML = `
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <span class="role-chip mb-3">${escaparHTML(etiquetaRol)}</span>
+        <h2 class="h4">${escaparHTML(titulo)}</h2>
+        <p>${escaparHTML(descripcion)}</p>
+      </div>
+      <div class="text-end">
+        <p class="mb-1 text-muted">Sesión activa</p>
+        <strong>${escaparHTML(nombre)}</strong>
+      </div>
+    </div>
+  `;
 }
 
 /*
@@ -248,7 +610,13 @@ function configurarSocketDashboard() {
 function configurarFiltros() {
   botonesFiltro.forEach((boton) => {
     boton.addEventListener("click", async () => {
-      filtroActual = boton.dataset.filtro;
+      const filtroSolicitado = boton.dataset.filtro;
+
+      if (!filtroPermitidoParaRol(filtroSolicitado)) {
+        return;
+      }
+
+      filtroActual = filtroSolicitado;
       guardarFiltroActual();
       actualizarEstadoVisualFiltros();
 
@@ -266,7 +634,20 @@ function configurarFiltros() {
 */
 function actualizarEstadoVisualFiltros() {
   botonesFiltro.forEach((boton) => {
-    if (boton.dataset.filtro === filtroActual) {
+    const filtroBoton = boton.dataset.filtro;
+
+    if (!filtroPermitidoParaRol(filtroBoton)) {
+      boton.classList.add("d-none");
+      boton.setAttribute("aria-hidden", "true");
+      boton.tabIndex = -1;
+      return;
+    }
+
+    boton.classList.remove("d-none");
+    boton.setAttribute("aria-hidden", "false");
+    boton.tabIndex = 0;
+
+    if (filtroBoton === filtroActual) {
       boton.classList.remove("btn-outline-primary");
       boton.classList.add("btn-primary");
     } else {
@@ -380,12 +761,19 @@ async function repintarDashboard() {
     cargarPublicacionesSeleccionadas()
   ]);
 
-  publicacionesDisponiblesCache = disponibles;
-  publicacionesSeleccionadasCache = seleccionadas;
+  publicacionesDisponiblesCache = filtrarPublicacionesPorRol(disponibles);
+  publicacionesSeleccionadasCache = filtrarPublicacionesPorRol(seleccionadas);
 
   pintarResumen(resumen);
   pintarTarjetas();
-  actualizarEstadoDashboard("Datos sincronizados con el backend y actualizados en tiempo real.");
+
+  if (usuarioEsAdmin()) {
+    actualizarEstadoDashboard("Datos globales sincronizados con el backend y actualizados en tiempo real.");
+  } else if (usuarioEsEmpresa()) {
+    actualizarEstadoDashboard("Demandas de candidatos sincronizadas con el backend en tiempo real.");
+  } else if (usuarioEsCandidato()) {
+    actualizarEstadoDashboard("Ofertas disponibles sincronizadas con el backend en tiempo real.");
+  }
 }
 
 /*
@@ -394,8 +782,14 @@ async function repintarDashboard() {
 function pintarResumen(resumen) {
   totalOfertasElemento.textContent = resumen.totalOfertas;
   totalDemandasElemento.textContent = resumen.totalDemandas;
-  totalUsuariosElemento.textContent = resumen.totalUsuarios;
-  totalSeleccionadasElemento.textContent = resumen.totalSeleccionadas;
+
+  if (usuarioEsAdmin()) {
+    totalUsuariosElemento.textContent = resumen.totalUsuarios;
+    totalSeleccionadasElemento.textContent = resumen.totalSeleccionadas;
+    return;
+  }
+
+  totalSeleccionadasElemento.textContent = publicacionesSeleccionadasCache.length;
 }
 
 /*
@@ -416,15 +810,29 @@ function obtenerDisponiblesFiltradas() {
 */
 function actualizarContadoresColumnas(disponiblesFiltradas, seleccionadas) {
   if (contadorDisponibles) {
-    const textoFiltro = filtroActual === "todas"
-      ? "disponibles"
-      : `${filtroActual === "oferta" ? "ofertas" : "demandas"} visibles`;
+    let textoFiltro = "disponibles";
+
+    if (usuarioEsEmpresa()) {
+      textoFiltro = "demandas visibles";
+    } else if (usuarioEsCandidato()) {
+      textoFiltro = "ofertas visibles";
+    } else if (filtroActual !== "todas") {
+      textoFiltro = `${filtroActual === "oferta" ? "ofertas" : "demandas"} visibles`;
+    }
 
     contadorDisponibles.textContent = `${disponiblesFiltradas.length} ${textoFiltro}`;
   }
 
   if (contadorSeleccionadas) {
-    contadorSeleccionadas.textContent = `${seleccionadas.length} seleccionadas`;
+    let texto = "seleccionadas";
+
+    if (usuarioEsEmpresa()) {
+      texto = "demandas seleccionadas";
+    } else if (usuarioEsCandidato()) {
+      texto = "ofertas seleccionadas";
+    }
+
+    contadorSeleccionadas.textContent = `${seleccionadas.length} ${texto}`;
   }
 }
 
@@ -446,7 +854,7 @@ function pintarTarjetas() {
   renderizarTarjetas(
     contenedorSeleccionadas,
     publicacionesSeleccionadasCache,
-    "Todavía no hay publicaciones seleccionadas. Arrastra aquí una tarjeta o usa doble clic sobre una publicación disponible.",
+    obtenerTextoVacioSeleccionadas(),
     "seleccionadas"
   );
 }
@@ -455,6 +863,14 @@ function pintarTarjetas() {
   Texto de estado vacío según el filtro activo.
 */
 function obtenerTextoVacioDisponibles() {
+  if (usuarioEsEmpresa()) {
+    return "No hay demandas de candidatos disponibles en este momento.";
+  }
+
+  if (usuarioEsCandidato()) {
+    return "No hay ofertas disponibles en este momento.";
+  }
+
   if (filtroActual === "oferta") {
     return "No hay ofertas disponibles con el filtro actual.";
   }
@@ -464,6 +880,21 @@ function obtenerTextoVacioDisponibles() {
   }
 
   return "No hay publicaciones disponibles en este momento.";
+}
+
+/*
+  Texto vacío de la zona de seleccionadas.
+*/
+function obtenerTextoVacioSeleccionadas() {
+  if (usuarioEsEmpresa()) {
+    return "Todavía no hay demandas seleccionadas. Arrastra aquí una demanda o usa doble clic sobre una tarjeta disponible.";
+  }
+
+  if (usuarioEsCandidato()) {
+    return "Todavía no hay ofertas seleccionadas. Arrastra aquí una oferta o usa doble clic sobre una tarjeta disponible.";
+  }
+
+  return "Todavía no hay publicaciones seleccionadas. Arrastra aquí una tarjeta o usa doble clic sobre una publicación disponible.";
 }
 
 /*

@@ -20,11 +20,31 @@ export function obtenerTokenGuardado() {
 }
 
 /*
-  Devuelve el token JWT actual cuando una operación requiere administrador.
+  Devuelve el token JWT actual cuando una operación requiere sesión.
+
+  Sirve para cualquier usuario autenticado:
+  - admin
+  - empresa
+  - candidato
 
   Si no hay token, se lanza un error claro antes de llamar al backend.
-  Esto mejora la experiencia de usuario y evita enviar mutaciones protegidas
-  sabiendo que van a ser rechazadas por requireAdmin.
+*/
+export function obtenerTokenSesionObligatorio() {
+  const token = obtenerTokenGuardado();
+
+  if (!token) {
+    throw new Error("Debes iniciar sesión para realizar esta operación.");
+  }
+
+  return token;
+}
+
+/*
+  Devuelve el token JWT actual cuando una operación requiere administrador.
+
+  Se mantiene separado del token general porque hay operaciones que deben seguir
+  siendo exclusivas del rol admin, como crear usuarios, eliminar usuarios o
+  eliminar publicaciones globales.
 */
 export function obtenerTokenAdminObligatorio() {
   const token = obtenerTokenGuardado();
@@ -35,7 +55,6 @@ export function obtenerTokenAdminObligatorio() {
 
   return token;
 }
-
 
 /*
   Guarda el token JWT para reutilizarlo en operaciones protegidas.

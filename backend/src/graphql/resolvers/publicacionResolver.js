@@ -2,20 +2,19 @@
  * @file src/graphql/resolvers/publicacionResolver.js
  * @description Resolvers GraphQL para la entidad Publicación.
  *
- * Siguen el mismo patrón que usuarioResolver: resolvers finos que delegan
- * toda la lógica de normalización, validación y persistencia al model.
- *
- * Excepción importante: eliminarPublicacion coordina DOS models (publicacion
- * + seleccionada) para mantener la coherencia del dashboard tras un borrado.
- * Esta coordinación inter-entidades es responsabilidad del resolver, no
- * del model, porque afecta a dos agregados distintos.
- *
- * En la Fase 5 protegemos las mutations sensibles con JWT:
- * - crearPublicacion requiere administrador autenticado.
- * - eliminarPublicacion requiere administrador autenticado.
+ * Producto 4:
+ * - Las consultas de publicaciones se mantienen disponibles para alimentar el frontend.
+ * - La creación de publicaciones se adapta al rol autenticado:
+ *   admin puede crear ofertas y demandas.
+ *   empresa solo puede crear ofertas.
+ *   candidato solo puede crear demandas.
+ * - La eliminación sigue reservada al administrador.
  */
 
-import { requireAdmin } from '../../middleware/auth.js';
+import {
+  requireAdmin,
+  requirePermisoCrearPublicacion
+} from '../../middleware/auth.js';
 import * as publicacionModel from '../../models/publicacionModel.js';
 import * as seleccionadaModel from '../../models/seleccionadaModel.js';
 import {
@@ -24,11 +23,49 @@ import {
   emitirSeleccionadasActualizadas,
 } from '../../socket.js';
 
+/**
+ * Normaliza texto defensivamente.
+ *
+ * @param {unknown} valor
+ * @returns {string}
+ */
+function normalizarTexto(valor) {
+  return String(valor || '').trim();
+}
+
+/**
+ * Prepara los datos antes de enviarlos al model.
+ *
+ * Para usuarios no administradores se refuerza que el email de contacto
+ * coincida con el usuario autenticado. Así evitamos que una empresa o
+ * candidato cree publicaciones usando correos de terceros.
+ *
+ * @param {object} datosPublicacion
+ * @param {object} usuarioAutenticado
+ * @returns {object}
+ */
+function prepararDatosPublicacionPorRol(datosPublicacion, usuarioAutenticado) {
+  const datos = {
+    ...datosPublicacion,
+    tipo: normalizarTexto(datosPublicacion.tipo).toLowerCase(),
+  };
+
+  if (usuarioAutenticado.rol !== 'admin') {
+    datos.emailContacto = usuarioAutenticado.email;
+  }
+
+  return datos;
+}
+
 export const publicacionResolver = {
   Query: {
     /**
      * Lista todas las publicaciones.
-     * Esta query se mantiene pública porque solo lee datos.
+     *
+     * La adaptación final por rol se realizará en frontend para que:
+     * - admin tenga visión global;
+     * - empresa vea principalmente ofertas y demandas útiles para contratar;
+     * - candidato vea principalmente ofertas disponibles.
      */
     listarPublicaciones: () => {
       return publicacionModel.listarPublicaciones();
@@ -36,7 +73,6 @@ export const publicacionResolver = {
 
     /**
      * Lista publicaciones filtradas por tipo.
-     * Esta query se mantiene pública porque solo lee datos.
      *
      * @param {unknown} _parent
      * @param {{tipo: string}} args
@@ -47,7 +83,6 @@ export const publicacionResolver = {
 
     /**
      * Busca una publicación por id.
-     * Esta query se mantiene pública porque solo lee datos.
      *
      * @param {unknown} _parent
      * @param {{id: string}} args
@@ -57,8 +92,7 @@ export const publicacionResolver = {
     },
 
     /**
-     * Devuelve el recuento de publicaciones.
-     * Esta query se mantiene pública porque solo lee datos.
+     * Devuelve el recuento general de publicaciones.
      */
     recuentoPublicaciones: () => {
       return publicacionModel.contarPublicaciones();
@@ -67,19 +101,30 @@ export const publicacionResolver = {
 
   Mutation: {
     /**
-     * Crea una publicación nueva tras validar todos sus campos.
+     * Crea una publicación nueva.
      *
-     * Fase 5:
-     * Esta mutation queda protegida. Solo un administrador autenticado
-     * mediante JWT puede crear publicaciones.
+     * Reglas:
+     * - admin puede crear ofertas y demandas.
+     * - empresa solo puede crear ofertas.
+     * - candidato solo puede crear demandas.
      *
      * @param {unknown} _parent
      * @param {{datos: object}} args
      * @param {{usuario: object|null}} context
      */
     crearPublicacion: async (_parent, args, context) => {
-      requireAdmin(context);
-      const creada = await publicacionModel.crearPublicacion(args.datos);
+      const usuarioAutenticado = requirePermisoCrearPublicacion(
+        context,
+        args.datos.tipo
+      );
+
+      const datosPreparados = prepararDatosPublicacionPorRol(
+        args.datos,
+        usuarioAutenticado
+      );
+
+      const creada = await publicacionModel.crearPublicacion(datosPreparados);
+
       emitirDashboardActualizado();
       emitirPublicacionesActualizadas();
 
@@ -88,13 +133,10 @@ export const publicacionResolver = {
 
     /**
      * Elimina una publicación por su id y mantiene coherencia limpiando
-     * cualquier entrada huérfana en el panel de seleccionadas.
+     * cualquier entrada huérfana en seleccionadas.
      *
-     * Orden de operaciones:
-     *   1. Comprobar que el usuario autenticado es administrador.
-     *   2. Eliminar la publicación.
-     *   3. Limpiar posibles huérfanas en seleccionadas.
-     *   4. Devolver la publicación eliminada al cliente.
+     * Solo el administrador puede eliminar publicaciones porque afecta
+     * a datos globales de la aplicación.
      *
      * @param {unknown} _parent
      * @param {{id: string}} args
@@ -104,7 +146,9 @@ export const publicacionResolver = {
       requireAdmin(context);
 
       const eliminada = await publicacionModel.eliminarPublicacionPorId(args.id);
+
       await seleccionadaModel.limpiarSeleccionesHuerfanas();
+
       emitirDashboardActualizado();
       emitirPublicacionesActualizadas();
       emitirSeleccionadasActualizadas();

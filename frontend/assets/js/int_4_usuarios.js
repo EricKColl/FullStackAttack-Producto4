@@ -11,7 +11,10 @@ import {
   confirmarAccion,
   mostrarAlerta,
   obtenerClaseBadgeRol,
-  pintarUsuarioEnNavbar
+  obtenerEtiquetaRol,
+  pintarUsuarioEnNavbar,
+  protegerPantallaAdmin,
+  protegerPantallaConSesion
 } from "./ui.js";
 
 const LISTAR_USUARIOS = `
@@ -72,11 +75,21 @@ const contadorUsuarios = document.getElementById("contador-usuarios");
 */
 let usuariosCache = [];
 
+/*
+  Carga usuarios desde backend.
+  Ahora requiere token admin porque listarUsuarios está protegido en servidor.
+*/
 async function cargarUsuariosBackend() {
-  const data = await graphqlRequest(LISTAR_USUARIOS);
+  const token = obtenerTokenAdminObligatorio();
+  const data = await graphqlRequest(LISTAR_USUARIOS, {}, token);
+
   return data.listarUsuarios;
 }
 
+/*
+  Crea usuarios.
+  Acción exclusiva de administrador.
+*/
 async function crearUsuarioBackend(datosUsuario) {
   const token = obtenerTokenAdminObligatorio();
 
@@ -89,6 +102,10 @@ async function crearUsuarioBackend(datosUsuario) {
   return data.crearUsuario;
 }
 
+/*
+  Elimina usuarios.
+  Acción exclusiva de administrador.
+*/
 async function eliminarUsuarioBackend(email) {
   const token = obtenerTokenAdminObligatorio();
 
@@ -107,6 +124,16 @@ async function eliminarUsuarioBackend(email) {
 async function inicializarPaginaUsuarios() {
   pintarUsuarioEnNavbar();
   configurarBotonCerrarSesion();
+
+  if (!protegerPantallaConSesion()) {
+    return;
+  }
+
+  if (!protegerPantallaAdmin()) {
+    return;
+  }
+
+  adaptarPaginaUsuariosAdmin();
   configurarFiltrosUsuarios();
 
   try {
@@ -116,6 +143,79 @@ async function inicializarPaginaUsuarios() {
   }
 
   formUsuario.addEventListener("submit", gestionarAltaUsuario);
+}
+
+/*
+  Inserta un panel contextual para dejar claro que esta pantalla es administrativa.
+*/
+function adaptarPaginaUsuariosAdmin() {
+  const usuarioActivo = obtenerUsuarioAutenticado();
+
+  if (!usuarioActivo) {
+    return;
+  }
+
+  insertarPanelContextoAdmin(usuarioActivo);
+  reforzarFormularioAdmin();
+}
+
+/*
+  Panel superior de contexto administrativo.
+*/
+function insertarPanelContextoAdmin(usuarioActivo) {
+  const intro = document.querySelector(".page-intro");
+
+  if (!intro) {
+    return;
+  }
+
+  let panel = document.getElementById("panel-contexto-admin-usuarios");
+
+  if (!panel) {
+    panel = document.createElement("section");
+    panel.id = "panel-contexto-admin-usuarios";
+    panel.className = "role-context-panel";
+    intro.insertAdjacentElement("afterend", panel);
+  }
+
+  const nombre = `${usuarioActivo.nombre} ${usuarioActivo.apellidos}`;
+  const etiquetaRol = obtenerEtiquetaRol(usuarioActivo.rol);
+
+  panel.innerHTML = `
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <span class="role-chip mb-3">${escaparHTML(etiquetaRol)}</span>
+        <h2 class="h4">Panel exclusivo de administración</h2>
+        <p>
+          Esta pantalla permite consultar, filtrar, crear y eliminar usuarios registrados.
+          Por seguridad, solo está disponible para sesiones con rol administrador.
+        </p>
+      </div>
+      <div class="text-end">
+        <p class="mb-1 text-muted">Sesión activa</p>
+        <strong>${escaparHTML(nombre)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+/*
+  Refuerza el formulario para que el admin cree usuarios normales.
+*/
+function reforzarFormularioAdmin() {
+  if (!rolUsuario) {
+    return;
+  }
+
+  /*
+    En esta entrega mantenemos el alta desde interfaz para usuarios funcionales:
+    candidato y empresa. El admin ya existe como cuenta de gestión.
+  */
+  Array.from(rolUsuario.options).forEach((opcion) => {
+    if (opcion.value === "admin") {
+      opcion.remove();
+    }
+  });
 }
 
 /*

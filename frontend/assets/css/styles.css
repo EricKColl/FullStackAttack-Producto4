@@ -1832,3 +1832,190 @@ footer {
     min-height: 520px;
   }
 }
+/* =========================================================
+   AJUSTE FINAL NAVBAR + ROLES PRODUCTO 4
+   ========================================================= */
+
+/* Bloque derecho de sesión: Login + usuario + cerrar sesión */
+.navbar .session-actions {
+  width: 520px !important;
+  min-width: 520px !important;
+  max-width: 520px !important;
+  flex: 0 0 520px !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  overflow: hidden !important;
+}
+
+/* Login colocado en la derecha con ancho reservado para evitar saltos */
+.navbar .session-login-link {
+  width: 122px !important;
+  min-width: 122px !important;
+  max-width: 122px !important;
+  flex: 0 0 122px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+/* Usuario activo estable */
+.navbar .usuario-sesion-navbar,
+#usuarioActivo {
+  width: 236px !important;
+  min-width: 236px !important;
+  max-width: 236px !important;
+  flex: 0 0 236px !important;
+  display: inline-block;
+  text-align: right;
+  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Si no hay usuario logeado, no se muestra texto ni "invitado" */
+#usuarioActivo.d-none,
+.usuario-sesion-navbar.d-none {
+  display: none !important;
+}
+
+/* Botón de cerrar sesión estable */
+#btn-cerrar-sesion {
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
+  flex: 0 0 140px !important;
+}
+
+/* Oculto visualmente, pero sin provocar comportamientos raros */
+#btn-cerrar-sesion.session-button-hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Pequeña diferenciación visual por rol */
+body.role-admin .navbar {
+  border-bottom-color: rgba(255, 215, 114, 0.28);
+}
+
+body.role-empresa .navbar {
+  border-bottom-color: rgba(79, 240, 190, 0.26);
+}
+
+body.role-candidato .navbar {
+  border-bottom-color: rgba(66, 214, 255, 0.28);
+}
+
+/* Componentes que usaremos en las siguientes pantallas */
+.role-context-panel {
+  border: 1px solid rgba(91, 215, 255, 0.18);
+  border-radius: var(--jc-radius);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(66, 214, 255, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(7, 16, 31, 0.94), rgba(8, 17, 34, 0.88));
+  box-shadow: var(--jc-shadow-md);
+  padding: 1.35rem;
+  margin-bottom: 1.4rem;
+}
+
+.role-context-panel h2 {
+  margin-bottom: 0.45rem;
+}
+
+.role-context-panel p {
+  margin-bottom: 0;
+  color: var(--jc-muted);
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0.32rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 215, 255, 0.24);
+  background: rgba(66, 214, 255, 0.10);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.readonly-role-notice {
+  border: 1px solid rgba(255, 215, 114, 0.22);
+  border-radius: var(--jc-radius-sm);
+  background: rgba(255, 215, 114, 0.08);
+  color: var(--jc-text);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Elementos que se mostrarán/ocultarán por JS */
+.accion-solo-admin.d-none,
+.bloque-solo-admin.d-none,
+.bloque-solo-empresa.d-none,
+.bloque-solo-candidato.d-none {
+  display: none !important;
+}
+
+@media (max-width: 1399px) {
+  .navbar .session-actions {
+    width: 470px !important;
+    min-width: 470px !important;
+    max-width: 470px !important;
+    flex-basis: 470px !important;
+  }
+
+  .navbar .session-login-link {
+    width: 118px !important;
+    min-width: 118px !important;
+    max-width: 118px !important;
+    flex-basis: 118px !important;
+  }
+
+  .navbar .usuario-sesion-navbar,
+  #usuarioActivo {
+    width: 204px !important;
+    min-width: 204px !important;
+    max-width: 204px !important;
+    flex-basis: 204px !important;
+  }
+
+  #btn-cerrar-sesion {
+    width: 132px !important;
+    min-width: 132px !important;
+    max-width: 132px !important;
+    flex-basis: 132px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  .navbar .session-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+    margin-top: 0.8rem;
+    overflow: visible !important;
+  }
+
+  .navbar .session-login-link,
+  .navbar .usuario-sesion-navbar,
+  #usuarioActivo,
+  #btn-cerrar-sesion {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: 0 1 auto !important;
+    text-align: left !important;
+  }
+
+  .navbar .session-actions {
+    flex-wrap: wrap;
+  }
+}
+
